@@ -127,7 +127,7 @@ class CHIP8:
         Загрузить в регистр VX число NN
         :return:
         """
-        idx = (self.opcode & 0x0F00) >> 8
+        idx = (self.opcode & 0x0F00) >> 8  # убираю лишние нули справа
         self.registers['v'][idx] = self.opcode & 0x00FF
 
     def emulate_cycle(self):
