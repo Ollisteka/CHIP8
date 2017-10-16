@@ -24,19 +24,55 @@ class CHIP8:
         self.draw_flag = False
 
         self.operation_table = {
+            0x0: self.return_clear,
             0x2: self.call_subroutine,
             0x6: self.load_num_to_reg,  # Загрузить в регистр VX число NN
+            0x7: self.load_sum_to_reg,  # Загрузить в регистр VX сумму VX и NN
             0xa: self.set_val_to_index,  # Значение регистра I
                                          # устанавливается в NNN
             0xd: self.draw_sprite,
             0xf: self.f_functions,
         }
         self.f_functions = {
+            0x15: self.set_delay_timer,
             0x33: self.save_vx_to_index,
             0x65: self.save_memory_to_vx,
             0x29: self.set_idx_to_location,
 
         }
+
+    def set_delay_timer(self):
+        """
+        opcode: 0xfX15
+        Установить значение таймера задержки равным значению регистра VX
+        :return:
+        """
+        self.timers['delay'] = (self.opcode & 0x0F00) >> 8
+
+    def return_clear(self):
+        """
+        Переключается между кодами, начинающимися с нуля
+        :return:
+        """
+        operation = self.opcode & 0x00FF
+        if operation == 0x00E0:
+            self.clear_screen()
+        elif operation == 0x00EE:
+            self.return_from_subroutine()
+        else:
+            raise Exception("Operation {0} is not supported".format(
+                  self.opcode))
+
+    def load_sum_to_reg(self):
+        """
+        opcode: 0x7XNN
+        Загрузить в регистр VX сумму VX и NN
+        :return:
+        """
+        number = self.opcode & 0x00FF
+        reg_num = (self.opcode & 0x0F00) >> 8
+        temp = self.registers['v'][reg_num] + number
+        self.registers['v'][reg_num] = temp % 256
 
     def set_idx_to_location(self):
         """
@@ -45,8 +81,6 @@ class CHIP8:
         находится в VX
         Sets I to the location of the sprite for the character in VX.
         Characters 0-F (in hexadecimal) are represented by a 4x5 font.
-        РАЗОБРАТЬСЯ All sprites are 5 bytes long, so the location of
-        the specified sprite is its index multiplied by 5.
         :return:
         """
         number = (self.opcode & 0x0F00) >> 8
@@ -84,11 +118,15 @@ class CHIP8:
         """
         operation = self.opcode & 0x00FF
         deb = hex(operation)
-        self.f_functions[operation]()
+        try:
+            self.f_functions[operation]()
+        except KeyError as err:
+            raise err
 
     def call_subroutine(self):
         """
         opcode: 0x2NNN
+        Вызвать подпрограмму
         Увеличить stack pointer, положить текущий PC на вершину стека,
         РС присвоить значение NNN
         :return:
@@ -96,6 +134,17 @@ class CHIP8:
         self.registers['sp'] += 1
         self.stack.append(self.registers['pc'])
         self.registers['pc'] = self.opcode & 0x0FFF
+
+    def return_from_subroutine(self):
+        """
+        opcode: 0x00EE
+        Возврат из подпрограммы.
+        Устанавливает в program counter адрес с вершины стека,
+        затем вычитает 1 из stack pointer
+        :return:
+        """
+        self.registers['pc'] = self.stack.pop()
+        self.registers['sp'] -= 1
 
     def draw_sprite(self):
         """
@@ -110,7 +159,12 @@ class CHIP8:
 
         self.draw(x_coord, y_coord, n_bytes)
 
+    # TODO
     def draw(self, x, y, n_bytes):
+        pass
+
+    # TODO
+    def clear_screen(self):
         pass
 
     def set_val_to_index(self):
