@@ -26,6 +26,7 @@ class CHIP8:
         self.operation_table = {
             0x0: self.return_clear,
             0x2: self.call_subroutine,
+            0x3: self.skip_if,
             0x6: self.load_num_to_reg,  # Загрузить в регистр VX число NN
             0x7: self.load_sum_to_reg,  # Загрузить в регистр VX сумму VX и NN
             0xa: self.set_val_to_index,  # Значение регистра I
@@ -34,12 +35,32 @@ class CHIP8:
             0xf: self.f_functions,
         }
         self.f_functions = {
+            0x7: self.put_delay_timer_to_reg,
             0x15: self.set_delay_timer,
             0x33: self.save_vx_to_index,
             0x65: self.save_memory_to_vx,
             0x29: self.set_idx_to_location,
 
         }
+
+    def skip_if(self):
+        """
+        opcode: 0x3XNN
+        Пропустить следующую инструкцию, если VX = NN
+        :return:
+        """
+        reg_num = (self.opcode & 0x0F00) >> 8
+        value = self.opcode & 0x00FF
+        if self.registers['v'][reg_num] == value:
+            self.registers['pc'] += 2
+
+    def put_delay_timer_to_reg(self):
+        """
+        opcode: 0xfX07
+        Регистру VX присваивается значение таймера задержки
+        :return:
+        """
+        self.registers['v'][(self.opcode & 0x0F00) >> 8] = self.timers['delay']
 
     def set_delay_timer(self):
         """
@@ -54,7 +75,8 @@ class CHIP8:
         Переключается между кодами, начинающимися с нуля
         :return:
         """
-        operation = self.opcode & 0x00FF
+        operation = self.opcode & 0x0FFF
+
         if operation == 0x00E0:
             self.clear_screen()
         elif operation == 0x00EE:

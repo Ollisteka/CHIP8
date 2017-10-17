@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+
 from chip8 import CHIP8
 
 
@@ -73,6 +74,35 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(self.game.registers['index'], 0)
         self.game.set_idx_to_location()
         self.assertEqual(self.game.registers['index'], 12)
+
+    def test_skip_if(self):
+        self.game.opcode = 0x3011
+        self.assertEqual(self.game.registers['pc'], 512)
+        self.game.skip_if()
+        self.assertEqual(self.game.registers['pc'], 512)
+        self.game.registers['v'][0] = 17
+        self.game.skip_if()
+        self.assertEqual(self.game.registers['pc'], 514)
+
+    def test_put_delay_timer_to_reg(self):
+        self.game.opcode = 0xf207
+        self.game.timers['delay'] = 12
+        self.assertEqual(self.game.registers['v'][2], 0)
+        self.game.put_delay_timer_to_reg()
+        self.assertEqual(self.game.registers['v'][2], 12)
+
+    @patch.object(CHIP8, 'clear_screen', return_value=None)
+    @patch.object(CHIP8, 'return_from_subroutine', return_value=None)
+    def test_zero_opcode(self, a, b):
+        opcodes = [0x00EE, 0x00E0, 0x01E0]
+        for code in opcodes:
+            self.game.opcode = code
+            if code == 0x01E0:
+                with self.assertRaises(Exception):
+                    self.game.return_clear()
+            else:
+                self.game.return_clear()
+
 
 
     # @patch('chip8.CHIP8.call_subroutine')
