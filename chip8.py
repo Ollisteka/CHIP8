@@ -4,12 +4,12 @@ class CHIP8:
         # первые 512 (0x200) заняты оригинальным интерпретатором
         self.memory = bytearray(4096)
         self.stack = []
-        # * 16 x 8-bit general purpose registers (V0 - VF**)
-        # * 1 x 16-bit index register (I)
-        # * 1 x 16-bit stack pointer (SP)
-        # * 1 x 16-bit program counter (PC)
-        # * 1 x 8-bit delay timer (DT)
-        # * 1 x 8-bit sound timer (ST)
+        # 16 x 8-bit general purpose registers (V0 - VF**)
+        # 1 x 16-bit index register (I)
+        # 1 x 16-bit stack pointer (SP)
+        # 1 x 16-bit program counter (PC)
+        # 1 x 8-bit delay timer (DT)
+        # 1 x 8-bit sound timer (ST)
         self.registers = {
             'v': [0] * 16,
             'index': 0,
@@ -40,7 +40,6 @@ class CHIP8:
             0x33: self.save_vx_to_index,
             0x65: self.save_memory_to_vx,
             0x29: self.set_idx_to_location,
-
         }
 
     def skip_if(self):
@@ -224,5 +223,3 @@ class CHIP8:
             data = file.read()
         for index, value in enumerate(data):
             self.memory[index + 0x200] = value
-
-
