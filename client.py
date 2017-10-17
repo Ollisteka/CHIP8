@@ -1,6 +1,7 @@
 import argparse
-import sys
 import os
+import sys
+
 from chip8 import CHIP8
 
 
@@ -19,14 +20,6 @@ def main():
 
     while game.running:
         game.emulate_cycle()
-
-        if game.draw_flag:
-            draw_graphics()
-
-
-def draw_graphics():
-    pass
-
 
 if __name__ == '__main__':
     main()
