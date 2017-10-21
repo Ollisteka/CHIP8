@@ -35,6 +35,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_save_vx_to_idx(self):
         self.game.opcode = 0xf133
+        self.game.registers['index'] = 512
         self.game.registers['v'][1] = 333
         for i in range(3):
             self.assertEqual(0, self.game.memory[self.game.registers[
@@ -91,6 +92,17 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(0, self.game.registers['v'][2])
         self.game.put_delay_timer_to_reg()
         self.assertEqual(12, self.game.registers['v'][2])
+
+    def test_goto(self):
+        self.game.opcode = 0x1000
+        self.game.goto()
+        self.assertEqual(0, self.game.registers['pc'])
+
+    # def test_rnd_to_vx(self):
+    #     self.game.opcode = 0xc111
+    #     with patch('randint', return_value=0):
+    #         self.game.set_rnd_to_vx()
+    #         self.assertEqual(0, self.game.registers['v'][1])
 
     @patch.object(CHIP8, 'clear_screen', return_value=None)
     @patch.object(CHIP8, 'return_from_subroutine', return_value=None)
