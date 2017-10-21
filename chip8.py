@@ -1,3 +1,24 @@
+from random import randint
+
+FONTS = [
+  0xF0, 0x90, 0x90, 0x90, 0xF0, # 0
+  0x20, 0x60, 0x20, 0x20, 0x70, # 1
+  0xF0, 0x10, 0xF0, 0x80, 0xF0, # 2
+  0xF0, 0x10, 0xF0, 0x10, 0xF0, # 3
+  0x90, 0x90, 0xF0, 0x10, 0x10, # 4
+  0xF0, 0x80, 0xF0, 0x10, 0xF0, # 5
+  0xF0, 0x80, 0xF0, 0x90, 0xF0, # 6
+  0xF0, 0x10, 0x20, 0x40, 0x40, # 7
+  0xF0, 0x90, 0xF0, 0x90, 0xF0, # 8
+  0xF0, 0x90, 0xF0, 0x10, 0xF0, # 9
+  0xF0, 0x90, 0xF0, 0x90, 0x90, # A
+  0xE0, 0x90, 0xE0, 0x90, 0xE0, # B
+  0xF0, 0x80, 0x80, 0x80, 0xF0, # C
+  0xE0, 0x90, 0x90, 0x90, 0xE0, # D
+  0xF0, 0x80, 0xF0, 0x80, 0xF0, # E
+  0xF0, 0x80, 0xF0, 0x80, 0x80  # F
+]
+
 class CHIP8:
     def __init__(self):
         self.running = True
@@ -25,12 +46,14 @@ class CHIP8:
 
         self.operation_table = {
             0x0: self.return_clear,
+            0x1: self.goto,
             0x2: self.call_subroutine,
             0x3: self.skip_if,
             0x6: self.load_num_to_reg,  # Загрузить в регистр VX число NN
             0x7: self.load_sum_to_reg,  # Загрузить в регистр VX сумму VX и NN
             0xa: self.set_val_to_index,  # Значение регистра I
                                          # устанавливается в NNN
+            0xc: self.set_rnd_to_vx,
             0xd: self.draw_sprite,
             0xf: self.f_functions,
         }
@@ -41,6 +64,36 @@ class CHIP8:
             0x65: self.save_memory_to_vx,
             0x29: self.set_idx_to_location,
         }
+        self.screen = [[0]*32]*64
+        self.__load_fonts()
+
+    def __load_fonts(self):
+        """
+        Loads fonts into memory
+        :return:
+        """
+        for i in range(80):
+            self.memory[i] = FONTS[i]
+
+    def goto(self):
+        """
+        opcode 0x1NNN
+        Program Counter устанавливается в NNN
+        :return:
+        """
+        self.registers['pc'] = self.opcode & 0x0FFF
+
+    def set_rnd_to_vx(self):
+        """
+        opcode: 0xcXKK
+        Устанавливает в регистр VX случайный байт И KK.
+        (И логическое)
+        :return:
+        """
+        rnd = randint(0, 255)
+        reg_num = (self.opcode & 0x0F00) >> 8
+        value = self.opcode & 0x00FF
+        self.registers['v'][reg_num] = value & rnd
 
     def skip_if(self):
         """
@@ -49,7 +102,7 @@ class CHIP8:
         :return:
         """
         reg_num = (self.opcode & 0x0F00) >> 8
-        value = self.opcode & 0x00FF
+        value = (self.opcode & 0x00FF)
         if self.registers['v'][reg_num] == value:
             self.registers['pc'] += 2
 
@@ -178,15 +231,52 @@ class CHIP8:
         y_coord = self.registers['v'][(self.opcode & 0x00F0) >> 4]
         n_bytes = self.opcode & 0x000F
 
+        self.registers['v'][15] = 0
+
         self.draw(x_coord, y_coord, n_bytes)
 
     # TODO
-    def draw(self, x, y, n_bytes):
-        pass
+    def draw(self, x, y, height):
+        """
+        Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and
+        a height of N pixels. Each row of 8 pixels is read as bit-coded
+        starting from memory location I; I value doesn’t change after the
+        execution of this instruction. As described above, VF is set to 1 if
+        any screen pixels are flipped from set to unset when the sprite is
+        drawn, and to 0 if that doesn’t happen.
+        Если при рисовании один спрайт накладывается на другой, в точке
+        наложения цвет инвертируется, а регистр VF принимает значение 1. Иначе
+        он принимает значение 0.
+        :param x:
+        :param y:
+        :param height:
+        :return:
+        """
+       # print("trying to draw")
+        I = self.registers['index']
+        for y_line in range(height):
+            pixel_byte = self.memory[I + y_line]
+            b = bin(pixel_byte)
+            c = b[2:].zfill(8)
+            pixel_byte = c
+            y_coord = (y + y_line) % 32
+            for x_idx in range(8):
+                x_coord = (x + x_idx) % 64
+
+                bit_at_idx = int(pixel_byte[x_idx])
+
+                if bit_at_idx != 0:
+                    if self.screen[x_coord][y_coord] == 1:
+                        self.registers['v'][15] = 1
+                    self.screen[x_coord][y_coord] ^= 1
+
+        self.draw_flag = True
+
 
     # TODO
     def clear_screen(self):
-        pass
+        print("trying to clear screen")
+        self.screen = [[0]*64]*32
 
     def set_val_to_index(self):
         """
@@ -209,9 +299,15 @@ class CHIP8:
         pc = self.registers['pc']
         self.opcode = (self.memory[pc] << 8) | self.memory[pc + 1]
         self.registers['pc'] += 2
+        a = 0
+
         operation = (self.opcode & 0xF000) >> 12
         deb = hex(operation)
         debb = hex(self.opcode)
+        if operation == 0x1218:
+            a+= 1
+        if a < 5:
+            print(debb)
         try:
             self.operation_table[operation]()
         except KeyError as err:
