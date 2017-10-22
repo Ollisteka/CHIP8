@@ -80,10 +80,10 @@ class MyTestCase(unittest.TestCase):
     def test_skip_if(self):
         self.game.opcode = 0x3011
         self.assertEqual(512, self.game.registers['pc'])
-        self.game.skip_if()
+        self.game.skip_if_equal()
         self.assertEqual(512, self.game.registers['pc'])
         self.game.registers['v'][0] = 17  # 0x11
-        self.game.skip_if()
+        self.game.skip_if_equal()
         self.assertEqual(514, self.game.registers['pc'])
 
     def test_put_delay_timer_to_reg(self):
@@ -115,6 +115,21 @@ class MyTestCase(unittest.TestCase):
                     self.game.return_clear()
             else:
                 self.game.return_clear()
+
+    def test_maze(self):
+
+        opcodes = [0x6000, 0x6100, 0xa222, 0xc201, 0x3201, 0xa21e, 0xd014,
+                   0x7004, 0x3040, 0x1204, 0xa6000, 0xa7104, 0xa3120,
+                   0xa1204,  0xa121c, 0xa8040, 0x010, 0x2040, 0xa8010]
+        v_registers = self.game.registers['v']
+        registers = self.game.registers
+        self.game.emulate_cycle(opcodes[0])
+        self.assertEqual(0, v_registers[0])
+        self.game.emulate_cycle(opcodes[1])
+        self.assertEqual(0, v_registers[1])
+        self.game.emulate_cycle(opcodes[2])
+        self.assertEqual(546, registers['index'])
+        self.game.emulate_cycle(opcodes[3])
 
 
 

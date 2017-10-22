@@ -11,6 +11,24 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from chip8 import CHIP8
 
+KEYBOARD = {
+    Qt.Key_1: 0x1,
+    Qt.Key_2: 0x2,
+    Qt.Key_3: 0x3,
+    Qt.Key_4: 0x4,
+    Qt.Key_5: 0x5,
+    Qt.Key_6: 0x6,
+    Qt.Key_7: 0x7,
+    Qt.Key_8: 0x8,
+    Qt.Key_9: 0x9,
+    Qt.Key_0: 0x0,
+    Qt.Key_A: 0xa,
+    Qt.Key_B: 0xb,
+    Qt.Key_C: 0xc,
+    Qt.Key_D: 0xd,
+    Qt.Key_E: 0xe,
+    Qt.Key_F: 0xf,
+}
 
 def main():
     parser = argparse.ArgumentParser(
@@ -45,8 +63,9 @@ class GameThread(QtCore.QObject):
 
         while self.game.running:
             if self.stop_running:
-                exit()
-            time.sleep(.05)
+                print("EXITING")
+                sys.exit()
+            time.sleep(.01)
             self.game.emulate_cycle()
 
             if self.game.draw_flag:
@@ -67,17 +86,22 @@ class GameWindow(QMainWindow):
         self.resize(64*self.pixel_width, 32*self.pixel_height)
 
         self.game_thread = GameThread(self.game, rom)
-        self.game_thread.draw_signal.connect(self.draw__)
+        self.game_thread.draw_signal.connect(self.call_repaint)
         thread = threading.Thread(target=self.game_thread.start_game)
         thread.start()
 
     @QtCore.pyqtSlot()
-    def draw__(self):
+    def call_repaint(self):
         self.repaint()
 
     def closeEvent(self, event):
         self.game_thread.stop_running = True
         event.accept()
+
+    def keyPressEvent(self, e):
+        if e.key() in KEYBOARD:
+            if self.game.waiting_for_key:
+                self.game.key_pressed = KEYBOARD[e.key()]
 
     def paintEvent(self, e):
         qp = QPainter()

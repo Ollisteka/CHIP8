@@ -19,6 +19,7 @@ FONTS = [
   0xF0, 0x80, 0xF0, 0x80, 0x80  # F
 ]
 
+
 class CHIP8:
     def __init__(self):
         self.running = True
@@ -34,8 +35,8 @@ class CHIP8:
         self.registers = {
             'v': [0] * 16,
             'index': 0,
-            'sp': 0,
-            'pc': 0x200,
+            'sp': 82,
+            'pc': 512,
         }
         self.timers = {
             'delay': 0,
@@ -43,37 +44,221 @@ class CHIP8:
         }
         self.opcode = 0
         self.draw_flag = False
+        self.waiting_for_key = False
 
         self.operation_table = {
             0x0: self.return_clear,
             0x1: self.goto,
             0x2: self.call_subroutine,
-            0x3: self.skip_if,
+            0x3: self.skip_if_equal,
+            0x4: self.skip_if_not_equal,
             0x6: self.load_num_to_reg,  # Загрузить в регистр VX число NN
             0x7: self.load_sum_to_reg,  # Загрузить в регистр VX сумму VX и NN
+            0x8: self.call_logical_operation,
             0xa: self.set_val_to_index,  # Значение регистра I
                                          # устанавливается в NNN
             0xc: self.set_rnd_to_vx,
             0xd: self.draw_sprite,
-            0xf: self.f_functions,
+            0xf: self.call_f_functions,
+        }
+        self.logocal_operations = {
+            0x0: self.load_vy_to_vx,
+            0x1: self.vx_or_vy,
+            0x2: self.vx_and_vy,
+            0x3: self.vx_xor_vy,
+            0x4: self.sum_vx_and_vy,
+            0x5: self.substract_vx_and_vy,
+            0x6: self.shift_right_vx,
+            0x7: self.substract_vy_and_vx,
+            0xE: self.shift_left_vx,
         }
         self.f_functions = {
             0x7: self.put_delay_timer_to_reg,
+            0xa: self.wait_for_key_press,
             0x15: self.set_delay_timer,
+            0x1e: self.sum_idx_and_vx,
             0x33: self.save_vx_to_index,
+            0x55: self.save_vx_to_memory,
             0x65: self.save_memory_to_vx,
             0x29: self.set_idx_to_location,
         }
-        self.screen = [[0]*32]*64
+        self.screen = []
+        self.key_pressed = None
+        self.__init_screen()  # [[0]*32]*64
         self.__load_fonts()
+
+    def __init_screen(self):
+        for i in range(64):
+            self.screen.append([0]*32)
 
     def __load_fonts(self):
         """
-        Loads fonts into memory
+        Загружает шрифты в память
         :return:
         """
         for i in range(80):
             self.memory[i] = FONTS[i]
+
+    def load_vy_to_vx(self):
+        """
+        opcode: 0x8XY0
+        VX = VY
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
+        self.registers['v'][x_num] = self.registers['v'][y_num]
+
+    def vx_or_vy(self):
+        """
+        opcode: 0x8XY1
+        VX = VX ИЛИ VY
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
+        x_value = self.registers['v'][x_num]
+        y_value = self.registers['v'][y_num]
+        self.registers['v'][x_num] = x_value | y_value
+
+    def vx_and_vy(self):
+        """
+        opcode: 0x8XY2
+        VX = VX И VY
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
+        x_value = self.registers['v'][x_num]
+        y_value = self.registers['v'][y_num]
+        self.registers['v'][x_num] = x_value & y_value
+
+    def vx_xor_vy(self):
+        """
+        opcode: 0x8XY3
+        VX = VX ИСКЛ.ИЛИ VY
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
+        x_value = self.registers['v'][x_num]
+        y_value = self.registers['v'][y_num]
+        self.registers['v'][x_num] = x_value ^ y_value
+
+    def sum_vx_and_vy(self):
+        """
+        opcode: 0x8XY4
+        VX = VX + VY, VF - флаг переноса
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
+        x_value = self.registers['v'][x_num]
+        y_value = self.registers['v'][y_num]
+        temp = x_value + y_value
+        if temp >= 256:
+            self.registers['v'][15] = 1
+            self.registers['v'][x_num] = temp - 256
+        else:
+            self.registers['v'][15] = 0
+            self.registers['v'][x_num] = temp - 256
+
+    def substract_vx_and_vy(self):
+        """
+        opcode: 0x8XY5
+        VX = VX - VY, VF - флаг переноса
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
+        x_value = self.registers['v'][x_num]
+        y_value = self.registers['v'][y_num]
+        if x_value > y_value:
+            self.registers['v'][15] = 1
+            self.registers['v'][x_num] = x_value - y_value
+        else:
+            self.registers['v'][15] = 0
+            self.registers['v'][x_num] = 256 + x_value - y_value
+
+    def substract_vy_and_vx(self):
+        """
+        opcode: 0x8XY7
+        VX = VY - VX, VF - флаг переноса
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
+        x_value = self.registers['v'][x_num]
+        y_value = self.registers['v'][y_num]
+        if y_value > x_value:
+            self.registers['v'][15] = 1
+            self.registers['v'][x_num] = y_value - x_value
+        else:
+            self.registers['v'][15] = 0
+            self.registers['v'][x_num] = 256 + y_value - x_value
+
+    def shift_right_vx(self):
+        """
+        opcode: 0x8XY6
+        VX = VX >> 1, VF - флаг переноса
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        x_value = self.registers['v'][x_num]
+        if x_value & 1 == 1:
+            self.registers['v'][15] = 1
+        else:
+            self.registers['v'][15] = 0
+        self.registers['v'][x_num] = x_value >> 1
+
+    def shift_left_vx(self):
+        """
+        opcode: 0x8XYe
+        VX = VX >> 1, VF - флаг переноса
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        x_value = self.registers['v'][x_num]
+        if x_value & 128 == 1:
+            self.registers['v'][15] = 1
+        else:
+            self.registers['v'][15] = 0
+        self.registers['v'][x_num] = (x_value << 1) & 127
+
+    def save_vx_to_memory(self):
+        """
+        opcode: 0xfX55
+        Сохранить значения регистров от V0 до VX включительно в память,
+        начиная с места, на которое указывает I
+        :return:
+        """
+        for i in range((self.opcode & 0x0F00) >> 8):
+            self.memory[self.registers['index'] + i] = self.registers['v'][i]
+
+    def wait_for_key_press(self):
+        """
+        opcode: 0xfX0a
+        Подождать, пока не будет нажата клавиша, зачем е значение положить в VX.
+        :return:
+        """
+        if not self.key_pressed:
+            self.waiting_for_key = True
+            self.registers['pc'] -= 2
+            return
+        reg_value = (self.opcode & 0x0F00) >> 8
+        self.registers['v'][reg_value] = self.key_pressed
+        self.key_pressed = None
+        self.waiting_for_key = False
+
+    def sum_idx_and_vx(self):
+        """
+        opcode: 0xfX1e
+        :return:
+        """
+        value = (self.opcode & 0x0F00) >> 8
+        idx_value = self.registers['index']
+        temp = value + idx_value
+        self.registers['index'] = temp % 32768
 
     def goto(self):
         """
@@ -95,7 +280,18 @@ class CHIP8:
         value = self.opcode & 0x00FF
         self.registers['v'][reg_num] = value & rnd
 
-    def skip_if(self):
+    def skip_if_not_equal(self):
+        """
+        opcode: 0x4XNN
+        Пропустить следующую инструкцию, если VX != NN
+        :return:
+        """
+        reg_num = (self.opcode & 0x0F00) >> 8
+        value = (self.opcode & 0x00FF)
+        if self.registers['v'][reg_num] != value:
+            self.registers['pc'] += 2
+
+    def skip_if_equal(self):
         """
         opcode: 0x3XNN
         Пропустить следующую инструкцию, если VX = NN
@@ -121,6 +317,18 @@ class CHIP8:
         :return:
         """
         self.timers['delay'] = (self.opcode & 0x0F00) >> 8
+
+    def call_logical_operation(self):
+        """
+        Переключается между командами, начинающимися с 8
+        :return:
+        """
+        operation = self.opcode & 0x000F
+        try:
+            self.logocal_operations[operation]()
+        except KeyError as err:
+            raise err
+
 
     def return_clear(self):
         """
@@ -185,7 +393,7 @@ class CHIP8:
         self.memory[self.registers['index'] + 1] = int((source/10) % 10)
         self.memory[self.registers['index'] + 2] = int((source % 100) % 10)
 
-    def f_functions(self):
+    def call_f_functions(self):
         """
         Вызывает нужную команду для опкода вида 0xfNN
         :return:
@@ -223,8 +431,9 @@ class CHIP8:
     def draw_sprite(self):
         """
         opcode: 0xdXYN
-        Нарисовать на экране спрайт. Эта инструкция считывает N байт по адресу
-        в регистре I и рисует их на экране в виде спрайта с координатами VX, VY
+        Нарисовать на экране спрайт. Эта инструкция считывает N байт начиная с
+        адреса из регистра I и рисует их на экране в виде спрайта с
+        координатами VX, VY
         :return:
         """
         x_coord = self.registers['v'][(self.opcode & 0x0F00) >> 8]
@@ -235,7 +444,6 @@ class CHIP8:
 
         self.draw(x_coord, y_coord, n_bytes)
 
-    # TODO
     def draw(self, x, y, height):
         """
         Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and
@@ -252,7 +460,6 @@ class CHIP8:
         :param height:
         :return:
         """
-       # print("trying to draw")
         I = self.registers['index']
         for y_line in range(height):
             pixel_byte = self.memory[I + y_line]
@@ -264,19 +471,21 @@ class CHIP8:
                 x_coord = (x + x_idx) % 64
 
                 bit_at_idx = int(pixel_byte[x_idx])
+                prev_bit_at_idx = self.screen[x_coord][y_coord]
 
-                if bit_at_idx != 0:
-                    if self.screen[x_coord][y_coord] == 1:
-                        self.registers['v'][15] = 1
-                    self.screen[x_coord][y_coord] ^= 1
+                if bit_at_idx == prev_bit_at_idx == 1:
+                    self.registers['v'][15] = 1
+                    self.screen[x_coord][y_coord] = 0
+                elif bit_at_idx == prev_bit_at_idx == 0:
+                    self.screen[x_coord][y_coord] = 0
+                else:
+                    self.screen[x_coord][y_coord] = bit_at_idx ^ prev_bit_at_idx
 
         self.draw_flag = True
 
-
-    # TODO
     def clear_screen(self):
-        print("trying to clear screen")
-        self.screen = [[0]*64]*32
+        self.screen = []
+        self.__init_screen()
 
     def set_val_to_index(self):
         """
@@ -295,19 +504,16 @@ class CHIP8:
         idx = (self.opcode & 0x0F00) >> 8  # убираю лишние нули справа
         self.registers['v'][idx] = self.opcode & 0x00FF
 
-    def emulate_cycle(self):
+    def emulate_cycle(self, opcode=None):
         pc = self.registers['pc']
-        self.opcode = (self.memory[pc] << 8) | self.memory[pc + 1]
+        if not opcode:
+            self.opcode = (self.memory[pc] << 8) | self.memory[pc + 1]
+        else:
+            self.opcode = opcode
         self.registers['pc'] += 2
-        a = 0
-
         operation = (self.opcode & 0xF000) >> 12
         deb = hex(operation)
         debb = hex(self.opcode)
-        if operation == 0x1218:
-            a+= 1
-        if a < 5:
-            print(debb)
         try:
             self.operation_table[operation]()
         except KeyError as err:
@@ -317,5 +523,10 @@ class CHIP8:
     def load_rom(self, rom):
         with open(rom, "rb") as file:
             data = file.read()
-        for index, value in enumerate(data):
-            self.memory[index + 0x200] = value
+        i = 0
+        for val in data:
+            a = hex(val)
+            self.memory[i + 0x200] = val
+            i += 1
+        # for index, value in enumerate(data):
+        #     self.memory[index + 0x200] = value
