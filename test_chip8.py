@@ -198,7 +198,7 @@ class TestFFunctions(unittest.TestCase):
         self.game.registers['v'][1] = 12
         self.assertEqual(0, self.game.registers['index'])
         self.game.set_idx_to_location()
-        self.assertEqual(12, self.game.registers['index'])
+        self.assertEqual(60, self.game.registers['index'])
 
     def test_save_vx_to_memory_at_index(self):
         self.game.opcode = 0xf233
@@ -307,13 +307,15 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(1, self.game.registers['pc'])
 
     def test_memory_to_vx(self):
-        self.game.opcode = 0x0365
+        self.game.opcode = 0xf465
         self.game.registers['index'] = 1
         for i in range(10):
             self.game.memory[self.game.registers['index'] + i] = 21
         self.game.save_memory_to_vx()
         for i in range(5):
             self.assertEqual(21, self.game.registers['v'][i])
+        for i in range(5, 16):
+            self.assertEqual(0, self.game.registers['v'][i])
 
 
     # def test_rnd_to_vx(self):

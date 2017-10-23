@@ -433,13 +433,11 @@ class CHIP8:
         """
         opcode: 0xfX29
         Команда загружает в регистр I адрес спрайта, значение которого
-        находится в VX
-        Sets I to the location of the sprite for the character in VX.
-        Characters 0-F (in hexadecimal) are represented by a 4x5 font.
+        находится в VX. Длина спрайта - 5 байт
         :return:
         """
         number = (self.opcode & 0x0F00) >> 8
-        self.registers['index'] = self.registers['v'][number]
+        self.registers['index'] = self.registers['v'][number] * 5
 
     def save_memory_to_vx(self):
         """
@@ -448,7 +446,7 @@ class CHIP8:
         начиная с адреса в I
         :return:
         """
-        for i in range(((self.opcode & 0x0F00) >> 8) + 2):
+        for i in range(((self.opcode & 0x0F00) >> 8) + 1):
             self.registers['v'][i] = self.memory[self.registers['index'] + i]
 
     def save_vx_to_memory_at_index(self):

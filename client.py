@@ -15,21 +15,21 @@ from chip8 import CHIP8
 
 KEYBOARD = {
     Qt.Key_1: 0x1,
-    Qt.Key_Up: 0x2,
+    Qt.Key_2: 0x2,
     Qt.Key_3: 0x3,
-    Qt.Key_Left: 0x4,
-    Qt.Key_Space: 0x5,
-    Qt.Key_Right: 0x6,
-    Qt.Key_7: 0x7,
-    Qt.Key_Down: 0x8,
-    Qt.Key_9: 0x9,
-    Qt.Key_Control: 0x0,
-    Qt.Key_A: 0xa,
-    Qt.Key_B: 0xb,
-    Qt.Key_C: 0xc,
-    Qt.Key_D: 0xd,
-    Qt.Key_E: 0xe,
-    Qt.Key_F: 0xf,
+    Qt.Key_Q: 0x4,
+    Qt.Key_W: 0x5,
+    Qt.Key_E: 0x6,
+    Qt.Key_A: 0x7,
+    Qt.Key_S: 0x8,
+    Qt.Key_D: 0x9,
+    Qt.Key_X: 0x0,
+    Qt.Key_Z: 0xa,
+    Qt.Key_C: 0xb,
+    Qt.Key_4: 0xc,
+    Qt.Key_R: 0xd,
+    Qt.Key_F: 0xe,
+    Qt.Key_V: 0xf,
 }
 
 def main():
@@ -67,7 +67,7 @@ class GameThread(QtCore.QObject):
         while self.game.running:
             if self.stop_running:
                 sys.exit()
-            time.sleep(.015)
+            time.sleep(.009)
             self.game.emulate_cycle()
 
             if self.game.draw_flag:
