@@ -4,6 +4,22 @@ from unittest.mock import patch
 from chip8 import CHIP8
 
 
+class TestHelperFunctions(unittest.TestCase):
+    def setUp(self):
+        self.game = CHIP8()
+        self.v_registers = self.game.registers['v']
+
+    def test_clear_screen(self):
+        for i in range(2, 10):
+            for j in range(1, 6):
+                self.game.screen[i][j] = 1
+        self.game.opcode = 0x00E0
+        self.game.clear_screen()
+        for i in range(64):
+            for j in range(32):
+                self.assertEqual(0, self.game.screen[i][j])
+
+
 class TestLogicalOperations(unittest.TestCase):
     """
     opcode: 0x8**
@@ -183,6 +199,16 @@ class TestFFunctions(unittest.TestCase):
         self.assertEqual(0, self.game.registers['index'])
         self.game.set_idx_to_location()
         self.assertEqual(12, self.game.registers['index'])
+
+    def test_save_vx_to_memory_at_index(self):
+        self.game.opcode = 0xf233
+        self.v_registers[2] = 333
+        self.game.registers['index'] = 555
+        for i in range(555, 558):
+            self.assertEqual(0, self.game.memory[i])
+        self.game.save_vx_to_memory_at_index()
+        for i in range(555, 558):
+            self.assertEqual(3, self.game.memory[i])
 
 
 class MyTestCase(unittest.TestCase):
