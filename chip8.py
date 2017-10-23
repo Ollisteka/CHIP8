@@ -247,7 +247,7 @@ class CHIP8:
         y_num = (self.opcode & 0x00F0) >> 4
         x_value = self.registers['v'][x_num]
         y_value = self.registers['v'][y_num]
-        if y_value & 127 != 0:
+        if (bin(y_value))[2:].zfill(8)[0] == '1':
             self.registers['v'][15] = 1
         else:
             self.registers['v'][15] = 0
@@ -261,7 +261,8 @@ class CHIP8:
         начиная с места, на которое указывает I
         :return:
         """
-        for i in range(((self.opcode & 0x0F00) >> 8) + 1):
+        final_reg = (self.opcode & 0x0F00) >> 8
+        for i in range(final_reg + 1):
             self.memory[self.registers['index'] + i] = self.registers['v'][i]
 
     def wait_for_key_press(self):
@@ -289,11 +290,12 @@ class CHIP8:
     def sum_idx_and_vx(self):
         """
         opcode: 0xfX1e
+        Сложить значение, лежащее в индексе, со значением в регистре VX
         :return:
         """
-        value = (self.opcode & 0x0F00) >> 8
+        reg_num = (self.opcode & 0x0F00) >> 8
         idx_value = self.registers['index']
-        temp = value + idx_value
+        temp = self.registers['v'][reg_num] + idx_value
         self.registers['index'] = temp % 32768
 
     def goto(self):
