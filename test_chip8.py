@@ -134,8 +134,55 @@ class TestLogicalOperations(unittest.TestCase):
         self.v_registers[1] = 0b00000000
         self.v_registers[2] = 0b00010000
         self.game.shift_left_vx()
-        self.assertEqual(1, self.v_registers[15])
+        self.assertEqual(0, self.v_registers[15])
         self.assertEqual(0b00100000, self.v_registers[1], self.v_registers[2])
+
+
+class TestFFunctions(unittest.TestCase):
+    def setUp(self):
+        self.game = CHIP8()
+        self.v_registers = self.game.registers['v']
+
+    def test_put_delay_timer_to_reg(self):
+        self.game.opcode = 0xf207
+        self.game.timers['delay'] = 12
+        self.assertEqual(0, self.game.registers['v'][2])
+        self.game.put_delay_timer_to_reg()
+        self.assertEqual(12, self.game.registers['v'][2])
+
+    def test_sum_idx_and_vx(self):
+        self.game.opcode = 0xf21e
+        self.v_registers[2] = 11
+        self.game.registers['index'] = 12
+        self.game.sum_idx_and_vx()
+        self.assertEqual(11, self.v_registers[2])
+        self.assertEqual(23, self.game.registers['index'])
+
+    def test_save_vx_to_memory(self):
+        self.game.registers['index'] = 514
+        for i in range(15):
+            self.v_registers[i] = i
+        self.game.opcode = 0xf555
+        for i in range(6):
+            self.assertEqual(0, self.game.memory[self.game.registers[
+                                                     'index'] + i])
+        self.game.save_vx_to_memory()
+        for i in range(6):
+            self.assertEqual(i, self.game.memory[self.game.registers[
+                                                     'index'] + i])
+
+    def test_set_delay_timer(self):
+        self.game.opcode = 0xf215
+        self.assertEqual(0, self.game.timers['delay'])
+        self.game.set_delay_timer()
+        self.assertEqual(2, self.game.timers['delay'])
+
+    def test_set_idx_to_location(self):
+        self.game.opcode = 0xf129
+        self.game.registers['v'][1] = 12
+        self.assertEqual(0, self.game.registers['index'])
+        self.game.set_idx_to_location()
+        self.assertEqual(12, self.game.registers['index'])
 
 
 class MyTestCase(unittest.TestCase):
@@ -233,18 +280,6 @@ class MyTestCase(unittest.TestCase):
         self.game.jump_to()
         self.assertEqual(1, self.game.registers['pc'])
 
-    def test_save_vx_to_idx(self):
-        self.game.opcode = 0xf133
-        self.game.registers['index'] = 512
-        self.game.registers['v'][1] = 333
-        for i in range(3):
-            self.assertEqual(0, self.game.memory[self.game.registers[
-                                                     'index'] + i])
-        self.game.save_vx_to_index()
-        for i in range(3):
-            self.assertEqual(3, self.game.memory[self.game.registers[
-                                                     'index'] + i])
-
     def test_memory_to_vx(self):
         self.game.opcode = 0x0365
         self.game.registers['index'] = 1
@@ -253,29 +288,6 @@ class MyTestCase(unittest.TestCase):
         self.game.save_memory_to_vx()
         for i in range(5):
             self.assertEqual(21, self.game.registers['v'][i])
-
-
-
-    def test_set_delay_timer(self):
-        self.game.opcode = 0xf215
-        self.assertEqual(0, self.game.timers['delay'])
-        self.game.set_delay_timer()
-        self.assertEqual(2, self.game.timers['delay'])
-
-    def test_set_idx_to_location(self):
-        self.game.opcode = 0xf129
-        self.game.registers['v'][1] = 12
-        self.assertEqual(0, self.game.registers['index'])
-        self.game.set_idx_to_location()
-        self.assertEqual(12, self.game.registers['index'])
-
-    def test_put_delay_timer_to_reg(self):
-        self.game.opcode = 0xf207
-        self.game.timers['delay'] = 12
-        self.assertEqual(0, self.game.registers['v'][2])
-        self.game.put_delay_timer_to_reg()
-        self.assertEqual(12, self.game.registers['v'][2])
-
 
 
     # def test_rnd_to_vx(self):
