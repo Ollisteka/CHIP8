@@ -273,12 +273,13 @@ class CHIP8:
         :return:
         """
         pressed_key = NOT_A_KEY
-        for key in self.keys:
-            if self.keys[key]:
-                pressed_key = key
-        if pressed_key == NOT_A_KEY:
-            self.registers['pc'] -= 2
-            return
+        while pressed_key == NOT_A_KEY:
+            for key in self.keys:
+                if self.keys[key]:
+                    pressed_key = key
+        # if pressed_key == NOT_A_KEY:
+        #     self.registers['pc'] -= 2
+        #     return
         reg_value = (self.opcode & 0x0F00) >> 8
         self.registers['v'][reg_value] = pressed_key
 
