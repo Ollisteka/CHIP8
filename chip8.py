@@ -19,6 +19,7 @@ FONTS = [
   0xF0, 0x80, 0xF0, 0x80, 0x80  # F
 ]
 
+NOT_A_KEY = -999
 
 class CHIP8:
     def __init__(self):
@@ -52,24 +53,28 @@ class CHIP8:
             0x2: self.call_subroutine,
             0x3: self.skip_if_equal,
             0x4: self.skip_if_not_equal,
+            0x5: self.skip_if_regs_equal,
             0x6: self.load_num_to_reg,  # Загрузить в регистр VX число NN
             0x7: self.load_sum_to_reg,  # Загрузить в регистр VX сумму VX и NN
             0x8: self.call_logical_operation,
+            0x9: self.skip_if_regs_not_equal,
             0xa: self.set_val_to_index,  # Значение регистра I
                                          # устанавливается в NNN
+            0xb: self.jump_to,
             0xc: self.set_rnd_to_vx,
             0xd: self.draw_sprite,
+            0xe: self.skip_if,
             0xf: self.call_f_functions,
         }
-        self.logocal_operations = {
+        self.logical_operations = {
             0x0: self.load_vy_to_vx,
             0x1: self.vx_or_vy,
             0x2: self.vx_and_vy,
             0x3: self.vx_xor_vy,
             0x4: self.sum_vx_and_vy,
-            0x5: self.substract_vx_and_vy,
+            0x5: self.subtract_vx_and_vy,
             0x6: self.shift_right_vx,
-            0x7: self.substract_vy_and_vx,
+            0x7: self.subtract_vy_and_vx,
             0xE: self.shift_left_vx,
         }
         self.f_functions = {
@@ -83,7 +88,8 @@ class CHIP8:
             0x29: self.set_idx_to_location,
         }
         self.screen = []
-        self.key_pressed = None
+        self.key_pressed = NOT_A_KEY
+        self.keys = {key: False for key in range(0, 16)}
         self.__init_screen()  # [[0]*32]*64
         self.__load_fonts()
 
@@ -96,8 +102,21 @@ class CHIP8:
         Загружает шрифты в память
         :return:
         """
-        for i in range(80):
-            self.memory[i] = FONTS[i]
+        # self.registers['pc'] = 0
+        offset = 0
+        for item in FONTS:
+            self.memory[offset] = item
+            offset += 1
+            # self.load_rom("FONTS.chip8")
+            # self.registers['pc'] = 512
+
+    def jump_to(self):
+        """
+        opcode: 0xbNNN
+        Перейти по адресу NNN + V0
+        :return:
+        """
+        self.registers['pc'] = self.registers['v'][0] + (self.opcode & 0x0FFF)
 
     def load_vy_to_vx(self):
         """
@@ -161,9 +180,9 @@ class CHIP8:
             self.registers['v'][x_num] = temp - 256
         else:
             self.registers['v'][15] = 0
-            self.registers['v'][x_num] = temp - 256
+            self.registers['v'][x_num] = temp
 
-    def substract_vx_and_vy(self):
+    def subtract_vx_and_vy(self):
         """
         opcode: 0x8XY5
         VX = VX - VY, VF - флаг переноса
@@ -180,7 +199,7 @@ class CHIP8:
             self.registers['v'][15] = 0
             self.registers['v'][x_num] = 256 + x_value - y_value
 
-    def substract_vy_and_vx(self):
+    def subtract_vy_and_vx(self):
         """
         opcode: 0x8XY7
         VX = VY - VX, VF - флаг переноса
@@ -201,29 +220,39 @@ class CHIP8:
         """
         opcode: 0x8XY6
         VX = VX >> 1, VF - флаг переноса
+        Из другого источника:
+        VX = VY = VY >> 1
         :return:
         """
         x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
         x_value = self.registers['v'][x_num]
-        if x_value & 1 == 1:
+        y_value = self.registers['v'][y_num]
+        if y_value & 1 == 1:
             self.registers['v'][15] = 1
         else:
             self.registers['v'][15] = 0
-        self.registers['v'][x_num] = x_value >> 1
+        self.registers['v'][y_num] = y_value >> 1
+        self.registers['v'][x_num] = y_value >> 1
 
     def shift_left_vx(self):
         """
         opcode: 0x8XYe
         VX = VX >> 1, VF - флаг переноса
+        Из другого источника:
+        VX = VY = VY << 1
         :return:
         """
         x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
         x_value = self.registers['v'][x_num]
-        if x_value & 128 == 1:
+        y_value = self.registers['v'][y_num]
+        if y_value & 127 != 0:
             self.registers['v'][15] = 1
         else:
             self.registers['v'][15] = 0
-        self.registers['v'][x_num] = (x_value << 1) & 127
+        self.registers['v'][y_num] = (y_value << 1) & 127
+        self.registers['v'][x_num] = (y_value << 1) & 127
 
     def save_vx_to_memory(self):
         """
@@ -232,7 +261,7 @@ class CHIP8:
         начиная с места, на которое указывает I
         :return:
         """
-        for i in range((self.opcode & 0x0F00) >> 8):
+        for i in range(((self.opcode & 0x0F00) >> 8) + 1):
             self.memory[self.registers['index'] + i] = self.registers['v'][i]
 
     def wait_for_key_press(self):
@@ -241,13 +270,20 @@ class CHIP8:
         Подождать, пока не будет нажата клавиша, зачем е значение положить в VX.
         :return:
         """
-        if not self.key_pressed:
-            self.waiting_for_key = True
+        pressed_key = NOT_A_KEY
+        for key in self.keys:
+            if self.keys[key]:
+                pressed_key = key
+        if pressed_key == NOT_A_KEY:
             self.registers['pc'] -= 2
             return
+        # if self.key_pressed == NOT_A_KEY:
+        #     self.waiting_for_key = True
+        #     self.registers['pc'] -= 2
+        #     return
         reg_value = (self.opcode & 0x0F00) >> 8
-        self.registers['v'][reg_value] = self.key_pressed
-        self.key_pressed = None
+        self.registers['v'][reg_value] = pressed_key
+        #self.key_pressed = NOT_A_KEY
         self.waiting_for_key = False
 
     def sum_idx_and_vx(self):
@@ -302,6 +338,32 @@ class CHIP8:
         if self.registers['v'][reg_num] == value:
             self.registers['pc'] += 2
 
+    def skip_if_regs_equal(self):
+        """
+        opcode: 0x5XY0
+        Пропустить следующую инструкцию, если VX == VY
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
+        x_value = self.registers['v'][x_num]
+        y_value = self.registers['v'][y_num]
+        if x_value == y_value:
+            self.registers['pc'] += 2
+
+    def skip_if_regs_not_equal(self):
+        """
+        opcode: 0x9XY0
+        Пропустить следующую инструкцию, если VX != VY
+        :return:
+        """
+        x_num = (self.opcode & 0x0F00) >> 8
+        y_num = (self.opcode & 0x00F0) >> 4
+        x_value = self.registers['v'][x_num]
+        y_value = self.registers['v'][y_num]
+        if x_value != y_value:
+            self.registers['pc'] += 2
+
     def put_delay_timer_to_reg(self):
         """
         opcode: 0xfX07
@@ -325,9 +387,10 @@ class CHIP8:
         """
         operation = self.opcode & 0x000F
         try:
-            self.logocal_operations[operation]()
+            self.logical_operations[operation]()
         except KeyError as err:
-            raise err
+            raise Exception(
+                "Operation {} is not supported".format(hex(self.opcode)))
 
 
     def return_clear(self):
@@ -342,8 +405,14 @@ class CHIP8:
         elif operation == 0x00EE:
             self.return_from_subroutine()
         else:
-            raise Exception("Operation {0} is not supported".format(
-                  self.opcode))
+            """
+            0x0NNN
+            Jump to a machine code routine at nnn.
+            
+            This instruction is only used on the old computers on which Chip-8 
+            was originally implemented. It is ignored by modern interpreters.
+            """
+            self.registers['pc'] = self.opcode & 0x0FFF
 
     def load_sum_to_reg(self):
         """
@@ -403,7 +472,44 @@ class CHIP8:
         try:
             self.f_functions[operation]()
         except KeyError as err:
-            raise err
+            raise Exception(
+                "Operation {} is not supported".format(hex(self.opcode)))
+
+    def skip_if_key_pressed(self):
+        """
+        opcode: 0xeX9E
+        Пропустить следующую инструкцию, если нажата клавиша с кодом,
+        лежащим в регистре VX
+        :return:
+        """
+        reg_num = (self.opcode & 0x0F00) >> 8
+        if self.keys[self.registers['v'][reg_num]]:
+            self.registers['pc'] += 2
+
+    def skip_if_key_not_pressed(self):
+        """
+        opcode: 0xeX9E
+        Пропустить следующую инструкцию, если клавиша с кодом,
+        лежащим в регистре VX НЕ нажата
+        :return:
+        """
+        reg_num = (self.opcode & 0x0F00) >> 8
+        if not self.keys[self.registers['v'][reg_num]]:
+            self.registers['pc'] += 2
+
+    def skip_if(self):
+        """
+        opcode: 0xeX__
+        :return:
+        """
+        operation = self.opcode & 0x00FF
+        if operation == 0x9e:
+            self.skip_if_key_pressed()
+        elif operation == 0xa1:
+            pass
+        else:
+            raise Exception(
+                "Operation {} is not supported".format(hex(self.opcode)))
 
     def call_subroutine(self):
         """
@@ -413,7 +519,6 @@ class CHIP8:
         РС присвоить значение NNN
         :return:
         """
-        self.registers['sp'] += 1
         self.stack.append(self.registers['pc'])
         self.registers['pc'] = self.opcode & 0x0FFF
 
@@ -426,7 +531,6 @@ class CHIP8:
         :return:
         """
         self.registers['pc'] = self.stack.pop()
-        self.registers['sp'] -= 1
 
     def draw_sprite(self):
         """
@@ -476,10 +580,8 @@ class CHIP8:
                 if bit_at_idx == prev_bit_at_idx == 1:
                     self.registers['v'][15] = 1
                     self.screen[x_coord][y_coord] = 0
-                elif bit_at_idx == prev_bit_at_idx == 0:
-                    self.screen[x_coord][y_coord] = 0
                 else:
-                    self.screen[x_coord][y_coord] = bit_at_idx ^ prev_bit_at_idx
+                    self.screen[x_coord][y_coord] ^= bit_at_idx
 
         self.draw_flag = True
 
@@ -510,15 +612,17 @@ class CHIP8:
             self.opcode = (self.memory[pc] << 8) | self.memory[pc + 1]
         else:
             self.opcode = opcode
-        self.registers['pc'] += 2
+        # if self.opcode != 0xf00a:
+        #     print(hex(self.opcode))
         operation = (self.opcode & 0xF000) >> 12
         deb = hex(operation)
         debb = hex(self.opcode)
+        self.registers['pc'] += 2
         try:
             self.operation_table[operation]()
         except KeyError as err:
             raise err
-        a = 0
+
 
     def load_rom(self, rom):
         with open(rom, "rb") as file:
