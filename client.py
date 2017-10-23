@@ -5,23 +5,23 @@ import threading
 import time
 
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel
-from PyQt5.QtGui import QPainter, QColor, QPen
-from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPainter
+from PyQt5.QtWidgets import QMainWindow
+
 from chip8 import CHIP8
 
 KEYBOARD = {
     Qt.Key_1: 0x1,
-    Qt.Key_2: 0x2,
+    Qt.Key_Up: 0x2,
     Qt.Key_3: 0x3,
-    Qt.Key_4: 0x4,
-    Qt.Key_5: 0x5,
-    Qt.Key_6: 0x6,
+    Qt.Key_Left: 0x4,
+    Qt.Key_Space: 0x5,
+    Qt.Key_Right: 0x6,
     Qt.Key_7: 0x7,
-    Qt.Key_8: 0x8,
+    Qt.Key_Down: 0x8,
     Qt.Key_9: 0x9,
-    Qt.Key_0: 0x0,
+    Qt.Key_Control: 0x0,
     Qt.Key_A: 0xa,
     Qt.Key_B: 0xb,
     Qt.Key_C: 0xc,
@@ -65,7 +65,7 @@ class GameThread(QtCore.QObject):
             if self.stop_running:
                 print("EXITING")
                 sys.exit()
-            time.sleep(.01)
+            time.sleep(.015)
             self.game.emulate_cycle()
 
             if self.game.draw_flag:
@@ -99,9 +99,12 @@ class GameWindow(QMainWindow):
         event.accept()
 
     def keyPressEvent(self, e):
-        if e.key() in KEYBOARD:
-            if self.game.waiting_for_key:
-                self.game.key_pressed = KEYBOARD[e.key()]
+        if e.key() in KEYBOARD.keys():
+            self.game.keys[KEYBOARD[e.key()]] = True
+
+    def keyReleaseEvent(self, e):
+        if e.key() in KEYBOARD.keys():
+            self.game.keys[KEYBOARD[e.key()]] = False
 
     def paintEvent(self, e):
         qp = QPainter()
@@ -110,8 +113,6 @@ class GameWindow(QMainWindow):
         qp.end()
 
     def draw(self, qp):
-        # self.setWindowTitle("Drawing")
-
         for y in range(32):
             for x in range(64):
                 color = Qt.black if not self.game.screen[x][y] else Qt.white
