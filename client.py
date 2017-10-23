@@ -7,9 +7,8 @@ import time
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QPainter
+from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from PyQt5.QtWidgets import QMainWindow
-from PyQt5.QtMultimedia import QSound, QMediaContent, QMediaPlayer
-
 
 from chip8 import CHIP8
 
@@ -31,6 +30,7 @@ KEYBOARD = {
     Qt.Key_F: 0xe,
     Qt.Key_V: 0xf,
 }
+
 
 def main():
     parser = argparse.ArgumentParser(

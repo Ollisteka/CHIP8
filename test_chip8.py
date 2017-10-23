@@ -211,7 +211,7 @@ class TestFFunctions(unittest.TestCase):
             self.assertEqual(3, self.game.memory[i])
 
 
-class MyTestCase(unittest.TestCase):
+class TestDifferentThings(unittest.TestCase):
     def setUp(self):
         self.game = CHIP8()
         self.v_registers = self.game.registers['v']
@@ -317,13 +317,6 @@ class MyTestCase(unittest.TestCase):
         for i in range(5, 16):
             self.assertEqual(0, self.game.registers['v'][i])
 
-
-    # def test_rnd_to_vx(self):
-    #     self.game.opcode = 0xc111
-    #     with patch('randint', return_value=0):
-    #         self.game.set_rnd_to_vx()
-    #         self.assertEqual(0, self.game.registers['v'][1])
-
     @patch.object(CHIP8, 'clear_screen', return_value=None)
     @patch.object(CHIP8, 'return_from_subroutine', return_value=None)
     def test_zero_opcode(self, a, b):
@@ -360,22 +353,6 @@ class MyTestCase(unittest.TestCase):
         self.game.return_from_subroutine()
         self.assertEqual(0, len(self.game.stack))
         self.assertEqual(0x200, self.game.registers['pc'])
-
-
-
-    # @patch('chip8.CHIP8.call_subroutine')
-    # def test_b_called(self, mock):
-    #     complect = {
-    #         0x2242: self.game.call_subroutine,
-    #         0x6532: self.game.load_num_to_reg,
-    #         0xa523: self.game.set_val_to_index,
-    #         0xd424: self.game.draw_sprite,
-    #         0xf233: self.game.f_functions,
-    #     }
-    #     for key in complect.keys():
-    #         with mock.patch.object(self.game, 'opcode', return_value=key):
-    #             self.game.emulate_cycle()
-    #         self.assertTrue(mock.called)
 
 
 if __name__ == '__main__':

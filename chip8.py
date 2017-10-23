@@ -470,7 +470,6 @@ class CHIP8:
         :return:
         """
         operation = self.opcode & 0x00FF
-        deb = hex(operation)
         try:
             self.f_functions[operation]()
         except KeyError:
@@ -552,12 +551,6 @@ class CHIP8:
 
     def draw(self, x, y, height):
         """
-        Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and
-        a height of N pixels. Each row of 8 pixels is read as bit-coded
-        starting from memory location I; I value doesn’t change after the
-        execution of this instruction. As described above, VF is set to 1 if
-        any screen pixels are flipped from set to unset when the sprite is
-        drawn, and to 0 if that doesn’t happen.
         Если при рисовании один спрайт накладывается на другой, в точке
         наложения цвет инвертируется, а регистр VF принимает значение 1. Иначе
         он принимает значение 0.
@@ -627,11 +620,8 @@ class CHIP8:
             self.opcode = (self.memory[pc] << 8) | self.memory[pc + 1]
         else:
             self.opcode = opcode
-        # if self.opcode != 0xf00a:
-        #     print(hex(self.opcode))
+
         operation = (self.opcode & 0xF000) >> 12
-        deb = hex(operation)
-        debb = hex(self.opcode)
         self.registers['pc'] += 2
         try:
             self.operation_table[operation]()
@@ -645,12 +635,14 @@ class CHIP8:
             self.timers['sound'] -= 1
 
     def load_rom(self, rom):
+        """
+        Загрузить данные ROM файла в память
+        :param rom:
+        :return:
+        """
         with open(rom, "rb") as file:
             data = file.read()
         i = 0
         for val in data:
-            a = hex(val)
             self.memory[i + 0x200] = val
             i += 1
-        # for index, value in enumerate(data):
-        #     self.memory[index + 0x200] = value
