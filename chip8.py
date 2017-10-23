@@ -281,6 +281,7 @@ class CHIP8:
             return
         reg_value = (self.opcode & 0x0F00) >> 8
         self.registers['v'][reg_value] = pressed_key
+        self.keys[pressed_key] = False
 
     def sum_idx_and_vx(self):
         """
