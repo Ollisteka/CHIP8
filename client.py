@@ -5,9 +5,11 @@ import threading
 import time
 
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtMultimedia import QSound, QMediaContent, QMediaPlayer
+
 
 from chip8 import CHIP8
 
@@ -50,6 +52,7 @@ def main():
 
 class GameThread(QtCore.QObject):
     draw_signal = QtCore.pyqtSignal()
+    sound_signal = QtCore.pyqtSignal()
     stop_running = False
 
     def __init__(self, game, rom):
@@ -63,7 +66,6 @@ class GameThread(QtCore.QObject):
 
         while self.game.running:
             if self.stop_running:
-                print("EXITING")
                 sys.exit()
             time.sleep(.015)
             self.game.emulate_cycle()
@@ -71,6 +73,8 @@ class GameThread(QtCore.QObject):
             if self.game.draw_flag:
                 self.draw_signal.emit()
                 self.game.draw_flag = False
+            if self.game.timers['sound'] == 1:
+                self.sound_signal.emit()
 
 
 class GameWindow(QMainWindow):
@@ -85,14 +89,24 @@ class GameWindow(QMainWindow):
 
         self.resize(64*self.pixel_width, 32*self.pixel_height)
 
+        url = QUrl.fromLocalFile(os.path.abspath("sound.wav"))
+        content = QMediaContent(url)
+        self.player = QMediaPlayer()
+        self.player.setMedia(content)
+
         self.game_thread = GameThread(self.game, rom)
         self.game_thread.draw_signal.connect(self.call_repaint)
+        self.game_thread.sound_signal.connect(self.make_sound)
         thread = threading.Thread(target=self.game_thread.start_game)
         thread.start()
 
     @QtCore.pyqtSlot()
     def call_repaint(self):
         self.repaint()
+
+    @QtCore.pyqtSlot()
+    def make_sound(self):
+        self.player.play()
 
     def closeEvent(self, event):
         self.game_thread.stop_running = True

@@ -81,14 +81,14 @@ class CHIP8:
             0x7: self.put_delay_timer_to_reg,
             0xa: self.wait_for_key_press,
             0x15: self.set_delay_timer,
+            0x18: self.set_sound_timer,
             0x1e: self.sum_idx_and_vx,
-            0x33: self.save_vx_to_index,
+            0x33: self.save_vx_to_memory_at_index,
             0x55: self.save_vx_to_memory,
             0x65: self.save_memory_to_vx,
             0x29: self.set_idx_to_location,
         }
         self.screen = []
-        self.key_pressed = NOT_A_KEY
         self.keys = {key: False for key in range(0, 16)}
         self.__init_screen()  # [[0]*32]*64
         self.__load_fonts()
@@ -268,7 +268,8 @@ class CHIP8:
     def wait_for_key_press(self):
         """
         opcode: 0xfX0a
-        Подождать, пока не будет нажата клавиша, зачем е значение положить в VX.
+        Подождать, пока не будет нажата клавиша, затем её значение положить
+        в VX.
         :return:
         """
         pressed_key = NOT_A_KEY
@@ -278,14 +279,8 @@ class CHIP8:
         if pressed_key == NOT_A_KEY:
             self.registers['pc'] -= 2
             return
-        # if self.key_pressed == NOT_A_KEY:
-        #     self.waiting_for_key = True
-        #     self.registers['pc'] -= 2
-        #     return
         reg_value = (self.opcode & 0x0F00) >> 8
         self.registers['v'][reg_value] = pressed_key
-        #self.key_pressed = NOT_A_KEY
-        self.waiting_for_key = False
 
     def sum_idx_and_vx(self):
         """
@@ -382,6 +377,14 @@ class CHIP8:
         """
         self.timers['delay'] = (self.opcode & 0x0F00) >> 8
 
+    def set_sound_timer(self):
+        """
+        opcode: 0xfX15
+        Установить значение звукового таймера равным значению регистра VX
+        :return:
+        """
+        self.timers['sound'] = (self.opcode & 0x0F00) >> 8
+
     def call_logical_operation(self):
         """
         Переключается между командами, начинающимися с 8
@@ -393,7 +396,6 @@ class CHIP8:
         except KeyError as err:
             raise Exception(
                 "Operation {} is not supported".format(hex(self.opcode)))
-
 
     def return_clear(self):
         """
@@ -449,7 +451,7 @@ class CHIP8:
         for i in range(((self.opcode & 0x0F00) >> 8) + 2):
             self.registers['v'][i] = self.memory[self.registers['index'] + i]
 
-    def save_vx_to_index(self):
+    def save_vx_to_memory_at_index(self):
         """
         opcode: 0xfX33
         Сохранить разряды значения регистра VX по адресам I, I+1 и I+2
@@ -473,7 +475,7 @@ class CHIP8:
         deb = hex(operation)
         try:
             self.f_functions[operation]()
-        except KeyError as err:
+        except KeyError:
             raise Exception(
                 "Operation {} is not supported".format(hex(self.opcode)))
 
@@ -508,7 +510,7 @@ class CHIP8:
         if operation == 0x9e:
             self.skip_if_key_pressed()
         elif operation == 0xa1:
-            pass
+            self.skip_if_key_not_pressed()
         else:
             raise Exception(
                 "Operation {} is not supported".format(hex(self.opcode)))
@@ -588,6 +590,11 @@ class CHIP8:
         self.draw_flag = True
 
     def clear_screen(self):
+        """
+        opcode: 0x00E0
+        Функция "очищает" экран, устанавливая каждый пиксель в ноль
+        :return:
+        """
         self.screen = []
         self.__init_screen()
 
@@ -609,6 +616,14 @@ class CHIP8:
         self.registers['v'][idx] = self.opcode & 0x00FF
 
     def emulate_cycle(self, opcode=None):
+        """
+        Имитация одного цикла машины:
+           1) Выборка команд
+           2) Выполнение команды
+           3) Увеличение счётчика команд
+        :param opcode:
+        :return:
+        """
         pc = self.registers['pc']
         if not opcode:
             self.opcode = (self.memory[pc] << 8) | self.memory[pc + 1]
@@ -625,6 +640,11 @@ class CHIP8:
         except KeyError as err:
             raise err
 
+        if self.timers['delay'] > 0:
+            self.timers['delay'] -= 1
+
+        if self.timers['sound'] > 0:
+            self.timers['sound'] -= 1
 
     def load_rom(self, rom):
         with open(rom, "rb") as file:
