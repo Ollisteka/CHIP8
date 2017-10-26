@@ -24,6 +24,7 @@ NOT_A_KEY = -999
 class CHIP8:
     def __init__(self):
         self.running = True
+        self.shift_only_vx = False
         # первые 512 (0x200) заняты оригинальным интерпретатором
         self.memory = bytearray(4096)
         self.stack = []
@@ -225,24 +226,13 @@ class CHIP8:
         VX = VY = VY >> 1
         :return:
         """
-        # С такой реализацией неправильно работает VBRIX
-        # x_num = (self.opcode & 0x0F00) >> 8
-        # x_value = self.registers['v'][x_num]
-        # if x_value & 1 == 1:
-        #     self.registers['v'][15] = 1
-        # else:
-        #     self.registers['v'][15] = 0
-        # self.registers['v'][x_num] = x_value >> 1
-
-        # А с такой совсем плохо работает BLINKY
         x_num = (self.opcode & 0x0F00) >> 8
-        y_num = (self.opcode & 0x00F0) >> 4
-        y_value = self.registers['v'][y_num]
-        if y_value & 1 == 1:
+        x_value = self.registers['v'][x_num]
+        if x_value & 1 == 1:
             self.registers['v'][15] = 1
         else:
             self.registers['v'][15] = 0
-        self.registers['v'][x_num] = self.registers['v'][y_num] = y_value >> 1
+        self.registers['v'][x_num] = x_value >> 1
 
     def shift_left_vx(self):
         """
@@ -252,25 +242,13 @@ class CHIP8:
         VX = VY = VY << 1
         :return:
         """
-        # С такой реализацией неправильно работает VBRIX
-        # x_num = (self.opcode & 0x0F00) >> 8
-        # x_value = self.registers['v'][x_num]
-        # if (bin(x_value))[2:].zfill(8)[0] == '1':
-        #     self.registers['v'][15] = 1
-        # else:
-        #     self.registers['v'][15] = 0
-        # self.registers['v'][x_num] = (x_value << 1) & 127
-
-        # А с такой совсем плохо работает BLINKY
         x_num = (self.opcode & 0x0F00) >> 8
-        y_num = (self.opcode & 0x00F0) >> 4
-        y_value = self.registers['v'][y_num]
-        if (bin(y_value))[2:].zfill(8)[0] == '1':
+        x_value = self.registers['v'][x_num]
+        if (bin(x_value))[2:].zfill(8)[0] == '1':
             self.registers['v'][15] = 1
         else:
             self.registers['v'][15] = 0
-        self.registers['v'][x_num] = \
-            self.registers['v'][y_num] = (y_value << 1) & 127
+        self.registers['v'][x_num] = x_value << 1
 
     def save_vx_to_memory(self):
         """
@@ -337,10 +315,9 @@ class CHIP8:
         (И логическое)
         :return:
         """
-        rnd = randint(0, 255)
         reg_num = (self.opcode & 0x0F00) >> 8
         value = self.opcode & 0x00FF
-        self.registers['v'][reg_num] = value & rnd
+        self.registers['v'][reg_num] = value & randint(0, 255)
 
     def skip_if_not_equal(self):
         """
