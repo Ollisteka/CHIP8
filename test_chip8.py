@@ -102,20 +102,17 @@ class TestLogicalOperations(unittest.TestCase):
 
     def test_shift_right_lost_one(self):
         self.game.opcode = 0x8126
-        self.v_registers[1] = 0b1111
-        self.v_registers[2] = 0b1001
+        self.v_registers[1] = 0b1001
         self.game.shift_right_vx()
         self.assertEqual(1, self.v_registers[15])
         self.assertEqual(0b0100, self.v_registers[1])
-        self.assertEqual(0b0100, self.v_registers[2])
 
     def test_shift_right_lost_zero(self):
         self.game.opcode = 0x8126
-        self.v_registers[1] = 0b1111
-        self.v_registers[2] = 0b1000
+        self.v_registers[1] = 0b1000
         self.game.shift_right_vx()
         self.assertEqual(0, self.v_registers[15])
-        self.assertEqual(0b0100, self.v_registers[1], self.v_registers[2])
+        self.assertEqual(0b0100, self.v_registers[1])
 
     def test_subtract_vy_and_vx_no_overflow(self):
         self.game.opcode = 0x8127
@@ -139,19 +136,17 @@ class TestLogicalOperations(unittest.TestCase):
 
     def test_shift_left_lost_one(self):
         self.game.opcode = 0x812e
-        self.v_registers[1] = 0b00000000
-        self.v_registers[2] = 0b10010000
+        self.v_registers[1] = 0b10010000
         self.game.shift_left_vx()
         self.assertEqual(1, self.v_registers[15])
-        self.assertEqual(0b00100000, self.v_registers[1], self.v_registers[2])
+        self.assertEqual(0b00100000, self.v_registers[1])
 
     def test_shift_left_lost_zero(self):
         self.game.opcode = 0x812e
-        self.v_registers[1] = 0b00000000
-        self.v_registers[2] = 0b00010000
+        self.v_registers[1] = 0b00010000
         self.game.shift_left_vx()
         self.assertEqual(0, self.v_registers[15])
-        self.assertEqual(0b00100000, self.v_registers[1], self.v_registers[2])
+        self.assertEqual(0b00100000, self.v_registers[1])
 
 
 class TestFFunctions(unittest.TestCase):
@@ -186,9 +181,24 @@ class TestFFunctions(unittest.TestCase):
         for i in range(6):
             self.assertEqual(i, self.game.memory[self.game.registers[
                                                      'index'] + i])
+        for i in range(6, 16):
+            self.assertEqual(0, self.game.memory[self.game.registers[
+                                                     'index'] + i])
+
+    def test_memory_to_vx(self):
+        self.game.opcode = 0xf465
+        self.game.registers['index'] = 1
+        for i in range(10):
+            self.game.memory[self.game.registers['index'] + i] = 21
+        self.game.save_memory_to_vx()
+        for i in range(5):
+            self.assertEqual(21, self.game.registers['v'][i])
+        for i in range(5, 16):
+            self.assertEqual(0, self.game.registers['v'][i])
 
     def test_set_delay_timer(self):
         self.game.opcode = 0xf215
+        self.v_registers[2] = 2
         self.assertEqual(0, self.game.timers['delay'])
         self.game.set_delay_timer()
         self.assertEqual(2, self.game.timers['delay'])
@@ -306,17 +316,6 @@ class TestDifferentThings(unittest.TestCase):
         self.game.jump_to()
         self.assertEqual(1, self.game.registers['pc'])
 
-    def test_memory_to_vx(self):
-        self.game.opcode = 0xf465
-        self.game.registers['index'] = 1
-        for i in range(10):
-            self.game.memory[self.game.registers['index'] + i] = 21
-        self.game.save_memory_to_vx()
-        for i in range(5):
-            self.assertEqual(21, self.game.registers['v'][i])
-        for i in range(5, 16):
-            self.assertEqual(0, self.game.registers['v'][i])
-
     @patch.object(CHIP8, 'clear_screen', return_value=None)
     @patch.object(CHIP8, 'return_from_subroutine', return_value=None)
     def test_zero_opcode(self, a, b):
@@ -353,6 +352,68 @@ class TestDifferentThings(unittest.TestCase):
         self.game.return_from_subroutine()
         self.assertEqual(0, len(self.game.stack))
         self.assertEqual(0x200, self.game.registers['pc'])
+
+    def test_draw(self):
+        """
+        ***.***.
+        *.*..*..
+        *.*..*..
+        :return:
+        """
+        self.game.memory[512] = 0b11101110
+        self.game.memory[513] = 0b10100100
+        self.game.memory[514] = 0b10100100
+        self.game.registers['index'] = 512
+        self.game.opcode = 0xd003
+        self.game.draw_sprite()
+        for x in range(8):
+            if x == 3 or x == 7:
+                self.assertEqual(0, self.game.screen[x][0])
+            else:
+                self.assertEqual(1, self.game.screen[x][0])
+        for y in range(1, 3):
+            for x in range(8):
+                if x in [1, 3, 4, 6, 7]:
+                    self.assertEqual(0, self.game.screen[x][y])
+                else:
+                    self.assertEqual(1, self.game.screen[x][y])
+        self.assertEqual(0, self.v_registers[15])
+
+    def test_draw_out_of_border(self):
+        self.game.memory[512] = 0b11111111
+        self.game.memory[513] = 0b11111111
+        self.game.registers['index'] = 512
+        self.v_registers[0] = 60
+        self.v_registers[1] = 0
+        self.game.opcode = 0xd012
+        self.game.draw_sprite()
+        self.assertEqual(0, self.v_registers[15])
+        for y in range(2):
+            for x in range(64):
+                if x in [0, 1, 2, 3, 60, 61, 62, 63]:
+                    self.assertEqual(1, self.game.screen[x][y])
+                else:
+                    self.assertEqual(0, self.game.screen[x][y])
+
+    def test_draw_overlap(self):
+        self.game.memory[512] = 0b11000000
+        self.game.memory[513] = 0b11000000
+        self.game.registers['index'] = 512
+        self.game.opcode = 0xd002
+        self.game.draw_sprite()
+        self.v_registers[0] = 1
+        self.game.opcode = 0xd002
+        self.game.draw_sprite()
+        self.assertEqual(1, self.v_registers[15])
+        for y in range(3):
+            for x in range(8):
+                if (x == 0 and y == 2) \
+                        or (x == 1 and y == 1) \
+                        or (x == 2 and y == 0) \
+                        or x >= 3:
+                    self.assertEqual(0, self.game.screen[x][y])
+                else:
+                    self.assertEqual(1, self.game.screen[x][y])
 
 
 if __name__ == '__main__':
