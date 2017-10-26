@@ -83,15 +83,16 @@ class CHIP8:
             0x15: self.set_delay_timer,
             0x18: self.set_sound_timer,
             0x1e: self.sum_idx_and_vx,
+            0x29: self.set_idx_to_location,
             0x33: self.save_vx_to_memory_at_index,
             0x55: self.save_vx_to_memory,
             0x65: self.save_memory_to_vx,
-            0x29: self.set_idx_to_location,
         }
         self.screen = []
         self.keys = {key: False for key in range(0, 16)}
         self.__init_screen()  # [[0]*32]*64
         self.__load_fonts()
+        self.count = 0
 
     def __init_screen(self):
         for i in range(64):
@@ -224,35 +225,52 @@ class CHIP8:
         VX = VY = VY >> 1
         :return:
         """
+        # С такой реализацией неправильно работает VBRIX
+        # x_num = (self.opcode & 0x0F00) >> 8
+        # x_value = self.registers['v'][x_num]
+        # if x_value & 1 == 1:
+        #     self.registers['v'][15] = 1
+        # else:
+        #     self.registers['v'][15] = 0
+        # self.registers['v'][x_num] = x_value >> 1
+
+        # А с такой совсем плохо работает BLINKY
         x_num = (self.opcode & 0x0F00) >> 8
         y_num = (self.opcode & 0x00F0) >> 4
-        x_value = self.registers['v'][x_num]
         y_value = self.registers['v'][y_num]
         if y_value & 1 == 1:
             self.registers['v'][15] = 1
         else:
             self.registers['v'][15] = 0
-        self.registers['v'][y_num] = y_value >> 1
-        self.registers['v'][x_num] = y_value >> 1
+        self.registers['v'][x_num] = self.registers['v'][y_num] = y_value >> 1
 
     def shift_left_vx(self):
         """
         opcode: 0x8XYe
-        VX = VX >> 1, VF - флаг переноса
+        VX = VX << 1, VF - флаг переноса
         Из другого источника:
         VX = VY = VY << 1
         :return:
         """
+        # С такой реализацией неправильно работает VBRIX
+        # x_num = (self.opcode & 0x0F00) >> 8
+        # x_value = self.registers['v'][x_num]
+        # if (bin(x_value))[2:].zfill(8)[0] == '1':
+        #     self.registers['v'][15] = 1
+        # else:
+        #     self.registers['v'][15] = 0
+        # self.registers['v'][x_num] = (x_value << 1) & 127
+
+        # А с такой совсем плохо работает BLINKY
         x_num = (self.opcode & 0x0F00) >> 8
         y_num = (self.opcode & 0x00F0) >> 4
-        x_value = self.registers['v'][x_num]
         y_value = self.registers['v'][y_num]
         if (bin(y_value))[2:].zfill(8)[0] == '1':
             self.registers['v'][15] = 1
         else:
             self.registers['v'][15] = 0
-        self.registers['v'][y_num] = (y_value << 1) & 127
-        self.registers['v'][x_num] = (y_value << 1) & 127
+        self.registers['v'][x_num] = \
+            self.registers['v'][y_num] = (y_value << 1) & 127
 
     def save_vx_to_memory(self):
         """
@@ -263,7 +281,19 @@ class CHIP8:
         """
         final_reg = (self.opcode & 0x0F00) >> 8
         for i in range(final_reg + 1):
-            self.memory[self.registers['index'] + i] = self.registers['v'][i]
+            self.memory[self.registers['index'] + i] = self.registers['v'][
+                                                           i] % 256
+
+    def save_memory_to_vx(self):
+        """
+        opcode: 0xfX65
+        Загрузить в регистры от V0 до VX (ключительно) значения из памяти,
+        начиная с адреса в I
+        :return:
+        """
+        final_reg = (self.opcode & 0x0F00) >> 8
+        for i in range(final_reg + 1):
+            self.registers['v'][i] = self.memory[self.registers['index'] + i]
 
     def wait_for_key_press(self):
         """
@@ -290,9 +320,7 @@ class CHIP8:
         :return:
         """
         reg_num = (self.opcode & 0x0F00) >> 8
-        idx_value = self.registers['index']
-        temp = self.registers['v'][reg_num] + idx_value
-        self.registers['index'] = temp % 32768
+        self.registers['index'] += self.registers['v'][reg_num]
 
     def goto(self):
         """
@@ -376,15 +404,15 @@ class CHIP8:
         Установить значение таймера задержки равным значению регистра VX
         :return:
         """
-        self.timers['delay'] = (self.opcode & 0x0F00) >> 8
+        self.timers['delay'] = self.registers['v'][(self.opcode & 0x0F00) >> 8]
 
     def set_sound_timer(self):
         """
-        opcode: 0xfX15
+        opcode: 0xfX18
         Установить значение звукового таймера равным значению регистра VX
         :return:
         """
-        self.timers['sound'] = (self.opcode & 0x0F00) >> 8
+        self.timers['sound'] = self.registers['v'][(self.opcode & 0x0F00) >> 8]
 
     def call_logical_operation(self):
         """
@@ -417,7 +445,8 @@ class CHIP8:
             This instruction is only used on the old computers on which Chip-8 
             was originally implemented. It is ignored by modern interpreters.
             """
-            self.registers['pc'] = self.opcode & 0x0FFF
+            # self.registers['pc'] = self.opcode & 0x0FFF
+            return
 
     def load_sum_to_reg(self):
         """
@@ -439,16 +468,6 @@ class CHIP8:
         """
         number = (self.opcode & 0x0F00) >> 8
         self.registers['index'] = self.registers['v'][number] * 5
-
-    def save_memory_to_vx(self):
-        """
-        opcode: 0xfX65
-        Загрузить значения регистров от V0 до VX (ключительно) из памяти,
-        начиная с адреса в I
-        :return:
-        """
-        for i in range(((self.opcode & 0x0F00) >> 8) + 1):
-            self.registers['v'][i] = self.memory[self.registers['index'] + i]
 
     def save_vx_to_memory_at_index(self):
         """
@@ -564,8 +583,7 @@ class CHIP8:
         for y_line in range(height):
             pixel_byte = self.memory[I + y_line]
             b = bin(pixel_byte)
-            c = b[2:].zfill(8)
-            pixel_byte = c
+            pixel_byte = b[2:].zfill(8)
             y_coord = (y + y_line) % 32
             for x_idx in range(8):
                 x_coord = (x + x_idx) % 64
@@ -575,9 +593,8 @@ class CHIP8:
 
                 if bit_at_idx == prev_bit_at_idx == 1:
                     self.registers['v'][15] = 1
-                    self.screen[x_coord][y_coord] = 0
-                else:
-                    self.screen[x_coord][y_coord] ^= bit_at_idx
+
+                self.screen[x_coord][y_coord] ^= bit_at_idx
 
         self.draw_flag = True
 
@@ -629,8 +646,10 @@ class CHIP8:
         except KeyError as err:
             raise err
 
-        if self.timers['delay'] > 0:
-            self.timers['delay'] -= 1
+        self.count += 1
+        if self.count % 10 == 0:
+            if self.timers['delay'] > 0:
+                self.timers['delay'] -= 1
 
         if self.timers['sound'] > 0:
             self.timers['sound'] -= 1
