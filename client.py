@@ -39,14 +39,12 @@ def main():
                 sys.argv[0])),
         description='CHIP8 emulator. Play a game which is 30 years old!')
     parser.add_argument('rom', type=str, help='way to rom file')
-    parser.add_argument('--shift_vy', action='store_true',
-                        help='use it, when going to play VBRIX')
 
     args = parser.parse_args()
 
     app = QtWidgets.QApplication(sys.argv)
 
-    window = GameWindow(args.rom, args.shift_vy)
+    window = GameWindow(args.rom)
     window.show()
 
     app.exec_()
@@ -80,14 +78,12 @@ class GameThread(QtCore.QObject):
 
 
 class GameWindow(QMainWindow):
-    def __init__(self, rom, shift_vy, parent=None):
+    def __init__(self, rom, parent=None):
         super().__init__(parent)
         self.rom = rom
         self.setWindowTitle(rom)
 
         self.game = CHIP8()
-        if shift_vy:
-            self.game.shift_only_vx = False
         self.pixel_height = 10
         self.pixel_width = 10
 
