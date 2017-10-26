@@ -156,6 +156,9 @@ class CHIP8:
         elif operation == 0x00FF:
             raise Exception("Operation {} is not supported".format(hex(
                 self.opcode)))
+        else:
+            raise Exception("Operation {} is not supported".format(hex(
+                self.opcode)))
 
     def set_pc_to_val(self, value):
         self.registers["pc"] = value
@@ -256,18 +259,10 @@ class CHIP8:
             self.registers["v"][x_num] = 256 + x_value - y_value
 
     def shift_right_vx(self):
-        x_num, y_num = self.get_x_and_y()
-        x_value, y_value = self.get_xvalue_and_yvalue(x_num, y_num)
-
-        if self.shift_only_vx:
-            if x_value & 1 == 1:
-                self.raise_flag()
-            self.registers['v'][x_num] = x_value >> 1
-        else:
-            if y_value & 1 == 1:
-                self.raise_flag()
-            self.registers['v'][x_num] = \
-                self.registers['v'][y_num] = y_value >> 1
+        source = (self.opcode & 0x0F00) >> 8
+        bit_zero = self.registers['v'][source] & 0x1
+        self.registers['v'][source] = self.registers['v'][source] >> 1
+        self.registers['v'][0xF] = bit_zero
 
     def subtract_vy_and_vx(self):
         x_num, y_num = self.get_x_and_y()
@@ -279,18 +274,10 @@ class CHIP8:
             self.registers["v"][x_num] = 256 + y_value - x_value
 
     def shift_left_vx(self):
-        x_num, y_num = self.get_x_and_y()
-        x_value, y_value = self.get_xvalue_and_yvalue(x_num, y_num)
-
-        if self.shift_only_vx:
-            if (bin(x_value))[2:].zfill(8)[0] == '1':
-                self.raise_flag()
-            self.registers['v'][x_num] = (x_value << 1) & 127
-        else:
-            if (bin(y_value))[2:].zfill(8)[0] == '1':
-                self.raise_flag()
-            self.registers['v'][x_num] = \
-                self.registers['v'][y_num] = (y_value << 1) & 127
+        source = (self.opcode & 0x0F00) >> 8
+        bit_seven = (self.registers['v'][source] & 0x80) >> 8
+        self.registers['v'][source] = self.registers['v'][source] << 1
+        self.registers['v'][0xF] = bit_seven
 
     def skip_if_vx_not_equals_vy(self):
         x_num, y_num = self.get_x_and_y()
@@ -391,7 +378,7 @@ class CHIP8:
     def sum_idx_and_vx(self):
         x_num, _ = self.get_x_and_y()
         idx_value = self.registers["index"]
-        self.registers["index"] = idx_value + self.registers["v"[x_num]]
+        self.registers["index"] = idx_value + self.registers["v"][x_num]
 
     def put_vx_sprite_to_idx(self):
         x_num, _ = self.get_x_and_y()
@@ -404,3 +391,15 @@ class CHIP8:
         self.memory[idx] = int(source / 100)
         self.memory[idx + 1] = int((source / 10) % 10)
         self.memory[idx + 2] = int((source % 100) % 10)
+
+    def put_v_reg_to_memory(self):
+        x_num, _ = self.get_x_and_y()
+        idx = self.registers["index"]
+        for i in range(x_num + 1):
+            self.memory[idx + i] = self.registers["v"][i]
+
+    def put_memory_to_v_reg(self):
+        x_num, _ = self.get_x_and_y()
+        idx = self.registers["index"]
+        for i in range(x_num + 1):
+            self.registers["v"][i] = self.memory[idx + i]
