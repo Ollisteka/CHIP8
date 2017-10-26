@@ -1,5 +1,6 @@
 from random import randint
 
+NOT_A_KEY = -999
 FONTS = [
   0xF0, 0x90, 0x90, 0x90, 0xF0, # 0
   0x20, 0x60, 0x20, 0x20, 0x70, # 1
@@ -110,6 +111,7 @@ class CHIP8:
             self.opcode = (self.memory[pc] << 8) | self.memory[pc + 1]
             self.registers['pc'] += 2
         operation = (self.opcode & 0xF000) >> 12
+        print(hex(self.opcode))
         try:
             self.opcode_table[operation]()
         except KeyError:
@@ -206,7 +208,7 @@ class CHIP8:
         x_num = (self.opcode & 0x0F00) >> 8
         x_value = self.registers["v"][x_num]
         temp = x_value + (self.opcode & 0x00FF)
-        self.registers["v"][x_num] = temp if temp < 256 else temp % 256
+        self.registers["v"][x_num] = temp % 256
 
     def logical_operations(self):
         operation = self.opcode & 0x000F
@@ -247,6 +249,8 @@ class CHIP8:
         temp = x_value + y_value
         if temp > 255:
             self.raise_flag()
+        else:
+            self.registers['v'][15] = 0
         self.registers["v"][x_num] = temp % 256
 
     def subtract_vx_and_vy(self):
@@ -256,6 +260,7 @@ class CHIP8:
             self.raise_flag()
             self.registers["v"][x_num] = x_value - y_value
         else:
+            self.registers['v'][15] = 0
             self.registers["v"][x_num] = 256 + x_value - y_value
 
     def shift_right_vx(self):
@@ -280,6 +285,7 @@ class CHIP8:
             self.raise_flag()
             self.registers["v"][x_num] = y_value - x_value
         else:
+            self.registers['v'][15] = 0
             self.registers["v"][x_num] = 256 + y_value - x_value
 
     def shift_left_vx(self):
@@ -345,7 +351,7 @@ class CHIP8:
                 prev_bit_at_idx = self.screen[x_coord][y_coord]
 
                 if bit_at_idx == prev_bit_at_idx == 1:
-                    self.raise_flag()
+                    self.registers['v'][0xF] = self.registers['v'][0xF] | 1
 
                 self.screen[x_coord][y_coord] ^= bit_at_idx
 
@@ -374,15 +380,16 @@ class CHIP8:
         self.registers["v"][x_num] = self.timers['delay']
 
     def put_key_to_vx(self):
-        pressed_key = -999
+        print("here")
+        pressed_key = NOT_A_KEY
         for key in self.keys:
             if self.keys[key]:
                 pressed_key = key
-        if pressed_key == -999:
+        if pressed_key == NOT_A_KEY:
             self.registers['pc'] -= 2
             return
-        x_num, _ = self.get_x_and_y()
-        self.registers['v'][x_num] = pressed_key
+        reg_value = (self.opcode & 0x0F00) >> 8
+        self.registers['v'][reg_value] = pressed_key
         self.keys[pressed_key] = False
 
     def put_vx_to_delay(self):
@@ -414,7 +421,7 @@ class CHIP8:
         x_num, _ = self.get_x_and_y()
         idx = self.registers["index"]
         for i in range(x_num + 1):
-            self.memory[idx + i] = self.registers["v"][i]
+            self.memory[idx + i] = self.registers["v"][i] % 256
 
     def put_memory_to_v_reg(self):
         x_num, _ = self.get_x_and_y()
