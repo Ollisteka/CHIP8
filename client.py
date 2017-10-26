@@ -67,7 +67,7 @@ class GameThread(QtCore.QObject):
         while self.game.running:
             if self.stop_running:
                 sys.exit()
-            time.sleep(.009)
+            time.sleep(.003)
             self.game.emulate_cycle()
 
             if self.game.draw_flag:
