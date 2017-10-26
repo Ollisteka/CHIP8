@@ -259,10 +259,19 @@ class CHIP8:
             self.registers["v"][x_num] = 256 + x_value - y_value
 
     def shift_right_vx(self):
-        source = (self.opcode & 0x0F00) >> 8
-        bit_zero = self.registers['v'][source] & 0x1
-        self.registers['v'][source] = self.registers['v'][source] >> 1
-        self.registers['v'][0xF] = bit_zero
+        x_num, y_num = self.get_x_and_y()
+        x_value, y_value = self.get_xvalue_and_yvalue(x_num, y_num)
+
+        if self.shift_only_vx:
+            bit_zero = self.registers['v'][x_num] & 0x1
+            self.registers['v'][x_num] = x_value >> 1
+            self.registers['v'][0xF] = bit_zero
+        else:
+            bit_zero = self.registers['v'][y_num] & 0x1
+            self.registers['v'][x_num] = \
+                self.registers['v'][y_num] = \
+                y_value >> 1
+            self.registers['v'][0xF] = bit_zero
 
     def subtract_vy_and_vx(self):
         x_num, y_num = self.get_x_and_y()
@@ -274,10 +283,19 @@ class CHIP8:
             self.registers["v"][x_num] = 256 + y_value - x_value
 
     def shift_left_vx(self):
-        source = (self.opcode & 0x0F00) >> 8
-        bit_seven = (self.registers['v'][source] & 0x80) >> 8
-        self.registers['v'][source] = self.registers['v'][source] << 1
-        self.registers['v'][0xF] = bit_seven
+        x_num, y_num = self.get_x_and_y()
+        x_value, y_value = self.get_xvalue_and_yvalue(x_num, y_num)
+
+        if self.shift_only_vx:
+            bit_seven = (self.registers['v'][x_num] & 0x80) >> 8
+            self.registers['v'][x_num] = x_value << 1
+            self.registers['v'][0xF] = bit_seven
+        else:
+            bit_seven = (self.registers['v'][y_num] & 0x80) >> 8
+            self.registers['v'][x_num] = \
+                self.registers['v'][y_num] = \
+                y_value << 1
+            self.registers['v'][0xF] = bit_seven
 
     def skip_if_vx_not_equals_vy(self):
         x_num, y_num = self.get_x_and_y()
