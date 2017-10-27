@@ -33,7 +33,7 @@ class TestLogicalOperations(unittest.TestCase):
         self.game.opcode = 0x8120
         self.v_registers[2] = 11
         self.assertEqual(0, self.v_registers[1])
-        self.game.load_vy_to_vx()
+        self.game.put_vy_to_vx()
         self.assertEqual(11, self.v_registers[1])
 
     def test_logical_or(self):
@@ -158,7 +158,7 @@ class TestFFunctions(unittest.TestCase):
         self.game.opcode = 0xf207
         self.game.timers['delay'] = 12
         self.assertEqual(0, self.game.registers['v'][2])
-        self.game.put_delay_timer_to_reg()
+        self.game.put_delay_to_vx()
         self.assertEqual(12, self.game.registers['v'][2])
 
     def test_sum_idx_and_vx(self):
@@ -177,7 +177,7 @@ class TestFFunctions(unittest.TestCase):
         for i in range(6):
             self.assertEqual(0, self.game.memory[self.game.registers[
                                                      'index'] + i])
-        self.game.save_vx_to_memory()
+        self.game.put_v_reg_to_memory()
         for i in range(6):
             self.assertEqual(i, self.game.memory[self.game.registers[
                                                      'index'] + i])
@@ -190,7 +190,7 @@ class TestFFunctions(unittest.TestCase):
         self.game.registers['index'] = 1
         for i in range(10):
             self.game.memory[self.game.registers['index'] + i] = 21
-        self.game.save_memory_to_vx()
+        self.game.put_memory_to_v_reg()
         for i in range(5):
             self.assertEqual(21, self.game.registers['v'][i])
         for i in range(5, 16):
@@ -200,14 +200,14 @@ class TestFFunctions(unittest.TestCase):
         self.game.opcode = 0xf215
         self.v_registers[2] = 2
         self.assertEqual(0, self.game.timers['delay'])
-        self.game.set_delay_timer()
+        self.game.put_vx_to_delay()
         self.assertEqual(2, self.game.timers['delay'])
 
     def test_set_idx_to_location(self):
         self.game.opcode = 0xf129
         self.game.registers['v'][1] = 12
         self.assertEqual(0, self.game.registers['index'])
-        self.game.set_idx_to_location()
+        self.game.put_vx_sprite_to_idx()
         self.assertEqual(60, self.game.registers['index'])
 
     def test_save_vx_to_memory_at_index(self):
@@ -216,7 +216,7 @@ class TestFFunctions(unittest.TestCase):
         self.game.registers['index'] = 555
         for i in range(555, 558):
             self.assertEqual(0, self.game.memory[i])
-        self.game.save_vx_to_memory_at_index()
+        self.game.store_vx_in_bcd()
         for i in range(555, 558):
             self.assertEqual(3, self.game.memory[i])
 
@@ -229,37 +229,37 @@ class TestDifferentThings(unittest.TestCase):
     def test_goto(self):
         self.game.opcode = 0x1000
         self.assertEqual(512, self.game.registers['pc'])
-        self.game.goto()
+        self.game.jump_to_address()
         self.assertEqual(0, self.game.registers['pc'])
 
     def test_skip_if_equal_not_equal(self):
         self.game.opcode = 0x3011
         self.assertEqual(512, self.game.registers['pc'])
-        self.game.skip_if_equal()
+        self.game.skip_if_vx_equals_value()
         self.assertEqual(512, self.game.registers['pc'])
 
     def test_skip_if_equal_equal(self):
         self.game.opcode = 0x3011
         self.v_registers[0] = 17  # 0x11
-        self.game.skip_if_equal()
+        self.game.skip_if_vx_equals_value()
         self.assertEqual(514, self.game.registers['pc'])
 
     def test_skip_if_not_equal_equal(self):
         self.game.opcode = 0x4011
         self.v_registers[0] = 17
-        self.game.skip_if_not_equal()
+        self.game.skip_if_vx_not_equals_value()
         self.assertEqual(512, self.game.registers['pc'])
 
     def test_skip_if_not_equal_not_equal(self):
         self.game.opcode = 0x4011
-        self.game.skip_if_not_equal()
+        self.game.skip_if_vx_not_equals_value()
         self.assertEqual(514, self.game.registers['pc'])
 
     def test_skip_if_regs_equal_equal(self):
         self.game.opcode = 0x5120
         self.assertEqual(512, self.game.registers['pc'])
         self.v_registers[1] = self.v_registers[2] = 13
-        self.game.skip_if_regs_equal()
+        self.game.skip_if_vx_equals_vy()
         self.assertEqual(514, self.game.registers['pc'])
 
     def test_skip_if_regs_equal_not_equal(self):
@@ -267,32 +267,32 @@ class TestDifferentThings(unittest.TestCase):
         self.assertEqual(512, self.game.registers['pc'])
         self.v_registers[1] = 2
         self.v_registers[2] = 13
-        self.game.skip_if_regs_equal()
+        self.game.skip_if_vx_equals_vy()
         self.assertEqual(512, self.game.registers['pc'])
 
     def test_load_num_to_reg(self):
         self.game.opcode = 0x63ff
         self.assertEqual(0, self.game.registers["v"][3])
-        self.game.load_num_to_reg()
+        self.game.put_value_to_vx()
         self.assertEqual(255, self.game.registers["v"][3])  # 0x00ff
 
     def test_load_sum_to_reg_no_overflow(self):
         self.game.opcode = 0x7211
         self.game.registers['v'][2] = 1
-        self.game.load_sum_to_reg()
+        self.game.sum_value_and_vx()
         self.assertEqual(18, self.game.registers['v'][2])
 
     def test_load_sum_to_reg_overflow(self):
         self.game.opcode = 0x7201
         self.v_registers[2] = 255
-        self.game.load_sum_to_reg()
+        self.game.sum_value_and_vx()
         self.assertEqual(0, self.v_registers[2])
 
     def test_skip_if_regs_not_equal_equal(self):
         self.game.opcode = 0x9010
         self.v_registers[0] = self.v_registers[1] = 12
         self.assertEqual(512, self.game.registers['pc'])
-        self.game.skip_if_regs_not_equal()
+        self.game.skip_if_vx_not_equals_vy()
         self.assertEqual(512, self.game.registers['pc'])
 
     def test_skip_if_regs_not_equal_not_equal(self):
@@ -300,20 +300,20 @@ class TestDifferentThings(unittest.TestCase):
         self.v_registers[0] = 1
         self.v_registers[1] = 12
         self.assertEqual(512, self.game.registers['pc'])
-        self.game.skip_if_regs_not_equal()
+        self.game.skip_if_vx_not_equals_vy()
         self.assertEqual(514, self.game.registers['pc'])
 
     def test_set_val_to_index(self):
         self.game.opcode = 0xa12e
         self.assertEqual(0, self.game.registers["index"])
-        self.game.set_val_to_index()
+        self.game.put_value_to_index()
         self.assertEqual(302, self.game.registers["index"])  # 0x012e
 
     def test_jump_to(self):
         self.game.opcode = 0xb000
         self.v_registers[0] = 1
         self.assertEqual(512, self.game.registers['pc'])
-        self.game.jump_to()
+        self.game.jump_to_address_plus_v0()
         self.assertEqual(1, self.game.registers['pc'])
 
     @patch.object(CHIP8, 'clear_screen', return_value=None)
@@ -341,16 +341,16 @@ class TestDifferentThings(unittest.TestCase):
 
     def test_jump_to_return_from_subroutine(self):
         self.game.opcode = 0x2eee
-        self.assertEqual(0, len(self.game.stack))
+        self.assertEqual(0, self.game.registers["sp"])
         self.assertEqual(0x200, self.game.registers['pc'])
 
         self.game.call_subroutine()
-        self.assertEqual(1, len(self.game.stack))
+        self.assertEqual(1, self.game.registers["sp"])
         self.assertEqual(0x0eee, self.game.registers['pc'])
 
         self.game.opcode = 0x00EE
         self.game.return_from_subroutine()
-        self.assertEqual(0, len(self.game.stack))
+        self.assertEqual(0, self.game.registers["sp"])
         self.assertEqual(0x200, self.game.registers['pc'])
 
     def test_draw(self):
