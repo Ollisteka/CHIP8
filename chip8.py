@@ -1,32 +1,35 @@
 from random import randint
 
 FONTS = [
-  0xF0, 0x90, 0x90, 0x90, 0xF0, # 0
-  0x20, 0x60, 0x20, 0x20, 0x70, # 1
-  0xF0, 0x10, 0xF0, 0x80, 0xF0, # 2
-  0xF0, 0x10, 0xF0, 0x10, 0xF0, # 3
-  0x90, 0x90, 0xF0, 0x10, 0x10, # 4
-  0xF0, 0x80, 0xF0, 0x10, 0xF0, # 5
-  0xF0, 0x80, 0xF0, 0x90, 0xF0, # 6
-  0xF0, 0x10, 0x20, 0x40, 0x40, # 7
-  0xF0, 0x90, 0xF0, 0x90, 0xF0, # 8
-  0xF0, 0x90, 0xF0, 0x10, 0xF0, # 9
-  0xF0, 0x90, 0xF0, 0x90, 0x90, # A
-  0xE0, 0x90, 0xE0, 0x90, 0xE0, # B
-  0xF0, 0x80, 0x80, 0x80, 0xF0, # C
-  0xE0, 0x90, 0x90, 0x90, 0xE0, # D
-  0xF0, 0x80, 0xF0, 0x80, 0xF0, # E
-  0xF0, 0x80, 0xF0, 0x80, 0x80  # F
+    0xF0, 0x90, 0x90, 0x90, 0xF0,  # 0
+    0x20, 0x60, 0x20, 0x20, 0x70,  # 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0,  # 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0,  # 3
+    0x90, 0x90, 0xF0, 0x10, 0x10,  # 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0,  # 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0,  # 6
+    0xF0, 0x10, 0x20, 0x40, 0x40,  # 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0,  # 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0,  # 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90,  # A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0,  # B
+    0xF0, 0x80, 0x80, 0x80, 0xF0,  # C
+    0xE0, 0x90, 0x90, 0x90, 0xE0,  # D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0,  # E
+    0xF0, 0x80, 0xF0, 0x80, 0x80  # F
 ]
 
 NOT_A_KEY = -999
 
+
 class CHIP8:
     def __init__(self):
+        self.opcode = 0
+        self.__delay_sync = 0
+        self.draw_flag = False
         self.running = True
-        self.shift_only_vx = False
-        # первые 512 (0x200) заняты оригинальным интерпретатором
         self.memory = bytearray(4096)
+        self.__load_fonts()
         self.stack = [0] * 17
         self.registers = {
             "pc": 512,  # 16 bit
@@ -38,9 +41,8 @@ class CHIP8:
             'delay': 0,  # 8 bit
             'sound': 0,  # 8 bit
         }
-        self.opcode = 0
-        self.draw_flag = False
-        self.waiting_for_key = False
+        self.screen = self.__init_screen()
+        self.keys = {key: False for key in range(0, 16)}
 
         self.operation_table = {
             0x0: self.return_clear,
@@ -49,19 +51,18 @@ class CHIP8:
             0x3: self.skip_if_vx_equals_value,
             0x4: self.skip_if_vx_not_equals_value,
             0x5: self.skip_if_vx_equals_vy,
-            0x6: self.put_value_to_vx,  # Загрузить в регистр VX число NN
-            0x7: self.sum_value_and_vx,  # Загрузить в регистр VX сумму VX и NN
+            0x6: self.put_value_to_vx,
+            0x7: self.sum_value_and_vx,
             0x8: self.call_logical_operation,
             0x9: self.skip_if_vx_not_equals_vy,
-            0xa: self.put_value_to_index,  # Значение регистра I
-                                         # устанавливается в NNN
+            0xa: self.put_value_to_index,
             0xb: self.jump_to_address_plus_v0,
             0xc: self.put_rnd_to_vx,
             0xd: self.draw_sprite,
             0xe: self.skip_if_key,
-            0xf: self.call_f_functions,
+            0xf: self.call_f_operations,
         }
-        self.logical_operations = {
+        self.logical_operations_table = {
             0x0: self.put_vy_to_vx,
             0x1: self.vx_or_vy,
             0x2: self.vx_and_vy,
@@ -72,7 +73,7 @@ class CHIP8:
             0x7: self.subtract_vy_and_vx,
             0xE: self.shift_left_vx,
         }
-        self.f_functions = {
+        self.f_operations_table = {
             0x7: self.put_delay_to_vx,
             0xa: self.put_key_to_vx,
             0x15: self.put_vx_to_delay,
@@ -83,36 +84,45 @@ class CHIP8:
             0x55: self.put_v_reg_to_memory,
             0x65: self.put_memory_to_v_reg,
         }
-        self.screen = []
-        self.keys = {key: False for key in range(0, 16)}
-        self.__init_screen()  # [[0]*32]*64
-        self.__load_fonts()
-        self.count = 0
 
     def get_x_and_y(self):
+        """
+        opcode: 0x0XY*
+        Выделяет из опкода числа X и Y
+        :return:
+        """
         x_num = (self.opcode & 0x0F00) >> 8
         y_num = (self.opcode & 0x00F0) >> 4
         return x_num, y_num
 
     def set_pc_to_val(self, value):
+        """
+        Устанавливает значение Programm Counter в value
+        :param value: 16 битное значение
+        :return:
+        """
         self.registers["pc"] = value
 
-    def __init_screen(self):
+    @staticmethod
+    def __init_screen():
+        """
+        Возвращает список списков размером 64*32, заполненный нулями
+        :return:
+        """
+        screen = []
         for i in range(64):
-            self.screen.append([0]*32)
+            screen.append([0] * 32)
+        return screen
 
     def __load_fonts(self):
         """
         Загружает шрифты в память
         :return:
         """
-        # self.registers['pc'] = 0
         offset = 0
         for item in FONTS:
             self.memory[offset] = item
             offset += 1
-            # self.load_rom("FONTS.chip8")
-            # self.registers['pc'] = 512
 
     def jump_to_address_plus_v0(self):
         """
@@ -201,7 +211,7 @@ class CHIP8:
         x_num, y_num = self.get_x_and_y()
         x_value = self.registers['v'][x_num]
         y_value = self.registers['v'][y_num]
-        if x_value > y_value:
+        if x_value >= y_value:
             self.registers['v'][15] = 1
             self.registers['v'][x_num] = x_value - y_value
         else:
@@ -217,7 +227,7 @@ class CHIP8:
         x_num, y_num = self.get_x_and_y()
         x_value = self.registers['v'][x_num]
         y_value = self.registers['v'][y_num]
-        if y_value > x_value:
+        if y_value >= x_value:
             self.registers['v'][15] = 1
             self.registers['v'][x_num] = y_value - x_value
         else:
@@ -228,8 +238,6 @@ class CHIP8:
         """
         opcode: 0x8XY6
         VX = VX >> 1, VF - флаг переноса
-        Из другого источника:
-        VX = VY = VY >> 1
         :return:
         """
         x_num = (self.opcode & 0x0F00) >> 8
@@ -244,8 +252,6 @@ class CHIP8:
         """
         opcode: 0x8XYe
         VX = VX << 1, VF - флаг переноса
-        Из другого источника:
-        VX = VY = VY << 1
         :return:
         """
         x_num = (self.opcode & 0x0F00) >> 8
@@ -263,10 +269,10 @@ class CHIP8:
         начиная с места, на которое указывает I
         :return:
         """
-        final_reg = (self.opcode & 0x0F00) >> 8
-        for i in range(final_reg + 1):
-            self.memory[self.registers['index'] + i] = self.registers['v'][
-                i]
+        x_num, _ = self.get_x_and_y()
+        idx = self.registers['index']
+        for i in range(x_num + 1):
+            self.memory[idx + i] = self.registers['v'][i]
 
     def put_memory_to_v_reg(self):
         """
@@ -275,9 +281,10 @@ class CHIP8:
         начиная с адреса в I
         :return:
         """
-        final_reg = (self.opcode & 0x0F00) >> 8
-        for i in range(final_reg + 1):
-            self.registers['v'][i] = self.memory[self.registers['index'] + i]
+        x_num, _ = self.get_x_and_y()
+        idx = self.registers['index']
+        for i in range(x_num + 1):
+            self.registers['v'][i] = self.memory[idx + i]
 
     def put_key_to_vx(self):
         """
@@ -293,8 +300,8 @@ class CHIP8:
         if pressed_key == NOT_A_KEY:
             self.registers['pc'] -= 2
             return
-        reg_value = (self.opcode & 0x0F00) >> 8
-        self.registers['v'][reg_value] = pressed_key
+        x_num, _ = self.get_x_and_y()
+        self.registers['v'][x_num] = pressed_key
         self.keys[pressed_key] = False
 
     def sum_idx_and_vx(self):
@@ -303,9 +310,9 @@ class CHIP8:
         Сложить значение, лежащее в индексе, со значением в регистре VX
         :return:
         """
-        reg_num = (self.opcode & 0x0F00) >> 8
+        x_num, _ = self.get_x_and_y()
         idx = self.registers['index']
-        self.registers['index'] = (self.registers['v'][reg_num] + idx) & 0xFFFF
+        self.registers['index'] = (self.registers['v'][x_num] + idx) & 0xFFFF
 
     def jump_to_address(self):
         """
@@ -322,9 +329,9 @@ class CHIP8:
         (И логическое)
         :return:
         """
-        reg_num = (self.opcode & 0x0F00) >> 8
+        x_num, _ = self.get_x_and_y()
         value = self.opcode & 0x00FF
-        self.registers['v'][reg_num] = value & randint(0, 255)
+        self.registers['v'][x_num] = value & randint(0, 255)
 
     def skip_if_vx_not_equals_value(self):
         """
@@ -343,9 +350,9 @@ class CHIP8:
         Пропустить следующую инструкцию, если VX = NN
         :return:
         """
-        reg_num = (self.opcode & 0x0F00) >> 8
+        x_num, _ = self.get_x_and_y()
         value = (self.opcode & 0x00FF)
-        if self.registers['v'][reg_num] == value:
+        if self.registers['v'][x_num] == value:
             self.registers['pc'] += 2
 
     def skip_if_vx_equals_vy(self):
@@ -406,7 +413,7 @@ class CHIP8:
         """
         operation = self.opcode & 0x000F
         try:
-            self.logical_operations[operation]()
+            self.logical_operations_table[operation]()
         except KeyError as err:
             raise Exception(
                 "Operation {} is not supported".format(hex(self.opcode)))
@@ -425,13 +432,12 @@ class CHIP8:
         else:
             """
             0x0NNN
-            Jump to a machine code routine at nnn.
+            Перейти к машинному коду в NNN.
             
-            This instruction is only used on the old computers on which Chip-8 
-            was originally implemented. It is ignored by modern interpreters.
+            Использовалось только в самый первых интерпретаторах, во всех 
+            современных просто игнорируется.
             """
-            # self.registers['pc'] = self.opcode & 0x0FFF
-            raise Exception()
+            return
 
     def put_vx_sprite_to_idx(self):
         """
@@ -440,8 +446,8 @@ class CHIP8:
         находится в VX. Длина спрайта - 5 байт
         :return:
         """
-        number = (self.opcode & 0x0F00) >> 8
-        self.registers['index'] = self.registers['v'][number] * 5
+        x_num, _ = self.get_x_and_y()
+        self.registers['index'] = self.registers['v'][x_num] * 5
 
     def store_vx_in_bcd(self):
         """
@@ -453,19 +459,21 @@ class CHIP8:
             единицы     -> self.memory[index + 2]
         :return:
         """
-        source = self.registers['v'][(self.opcode & 0x0F00) >> 8]
-        self.memory[self.registers['index']] = int(source/100)
-        self.memory[self.registers['index'] + 1] = int((source/10) % 10)
-        self.memory[self.registers['index'] + 2] = int((source % 100) % 10)
+        x_num, _ = self.get_x_and_y()
+        source = self.registers['v'][x_num]
+        idx = self.registers['index']
+        self.memory[idx] = int(source / 100)
+        self.memory[idx + 1] = int((source / 10) % 10)
+        self.memory[idx + 2] = int((source % 100) % 10)
 
-    def call_f_functions(self):
+    def call_f_operations(self):
         """
         Вызывает нужную команду для опкода вида 0xfNN
         :return:
         """
         operation = self.opcode & 0x00FF
         try:
-            self.f_functions[operation]()
+            self.f_operations_table[operation]()
         except KeyError:
             raise Exception(
                 "Operation {} is not supported".format(hex(self.opcode)))
@@ -477,8 +485,8 @@ class CHIP8:
         лежащим в регистре VX
         :return:
         """
-        reg_num = (self.opcode & 0x0F00) >> 8
-        if self.keys[self.registers['v'][reg_num]]:
+        x_num, _ = self.get_x_and_y()
+        if self.keys[self.registers['v'][x_num]]:
             self.registers['pc'] += 2
 
     def skip_if_key_not_pressed(self):
@@ -488,8 +496,8 @@ class CHIP8:
         лежащим в регистре VX НЕ нажата
         :return:
         """
-        reg_num = (self.opcode & 0x0F00) >> 8
-        if not self.keys[self.registers['v'][reg_num]]:
+        x_num, _ = self.get_x_and_y()
+        if not self.keys[self.registers['v'][x_num]]:
             self.registers['pc'] += 2
 
     def skip_if_key(self):
@@ -580,8 +588,7 @@ class CHIP8:
         Функция "очищает" экран, устанавливая каждый пиксель в ноль
         :return:
         """
-        self.screen = []
-        self.__init_screen()
+        self.screen = self.__init_screen()
 
     def put_value_to_index(self):
         """
@@ -597,7 +604,7 @@ class CHIP8:
         Загрузить в регистр VX число NN
         :return:
         """
-        idx = (self.opcode & 0x0F00) >> 8  # убираю лишние нули справа
+        idx = (self.opcode & 0x0F00) >> 8
         self.registers['v'][idx] = self.opcode & 0x00FF
 
     def emulate_cycle(self, opcode=None):
@@ -622,10 +629,10 @@ class CHIP8:
         except KeyError as err:
             raise err
 
-        self.count += 1
-        # if self.count % 10 == 0:
-        if self.timers['delay'] > 0:
-            self.timers['delay'] -= 1
+        self.__delay_sync += 1
+        if self.__delay_sync % 10 == 0:
+            if self.timers['delay'] > 0:
+                self.timers['delay'] -= 1
 
         if self.timers['sound'] > 0:
             self.timers['sound'] -= 1
