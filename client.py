@@ -31,6 +31,9 @@ KEYBOARD = {
     Qt.Key_V: 0xf,
 }
 
+PIXEL_HEIGHT = 10
+PIXEL_WIDTH = 10
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -67,7 +70,7 @@ class GameThread(QtCore.QObject):
         while self.game.running:
             if self.stop_running:
                 sys.exit()
-            time.sleep(.004)
+            time.sleep(.002)
             self.game.emulate_cycle()
 
             if self.game.draw_flag:
@@ -84,10 +87,8 @@ class GameWindow(QMainWindow):
         self.setWindowTitle(rom)
 
         self.game = CHIP8()
-        self.pixel_height = 10
-        self.pixel_width = 10
 
-        self.resize(64*self.pixel_width, 32*self.pixel_height)
+        self.setFixedSize(64 * PIXEL_WIDTH, 32 * PIXEL_HEIGHT)
 
         url = QUrl.fromLocalFile(os.path.abspath("sound.wav"))
         content = QMediaContent(url)
@@ -130,9 +131,8 @@ class GameWindow(QMainWindow):
         for y in range(32):
             for x in range(64):
                 color = Qt.black if not self.game.screen[x][y] else Qt.white
-                qp.setBrush(color)
-                qp.drawRect(x*self.pixel_width, y*self.pixel_height,
-                            self.pixel_width, self.pixel_height)
+                qp.fillRect(x * PIXEL_WIDTH, y * PIXEL_HEIGHT,
+                            PIXEL_WIDTH, PIXEL_HEIGHT, color)
 
 
 if __name__ == '__main__':
