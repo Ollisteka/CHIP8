@@ -630,8 +630,9 @@ class CHIP8:
         self.registers['pc'] += 2
         try:
             self.operation_table[operation]()
-        except KeyError as err:
-            raise err
+        except KeyError:
+            raise Exception(
+                "Operation {} is not supported".format(hex(self.opcode)))
 
         self.__delay_sync += 1
         if self.__delay_sync % 10 == 0:
