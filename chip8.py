@@ -28,6 +28,7 @@ class CHIP8:
         self.__delay_sync = 0
         self.draw_flag = False
         self.running = True
+        self.is_paused = False
         self.memory = bytearray(4096)
         self.__load_fonts()
         self.stack = [0] * 17
@@ -616,6 +617,9 @@ class CHIP8:
         :param opcode:
         :return:
         """
+        if self.is_paused:
+            return
+
         pc = self.registers['pc']
         if not opcode:
             self.opcode = (self.memory[pc] << 8) | self.memory[pc + 1]
@@ -645,7 +649,5 @@ class CHIP8:
         """
         with open(rom, "rb") as file:
             data = file.read()
-        i = 0
-        for val in data:
-            self.memory[i + 0x200] = val
-            i += 1
+        for index, value in enumerate(data):
+            self.memory[index + 0x200] = value

@@ -116,6 +116,10 @@ class GameWindow(QMainWindow):
     def keyPressEvent(self, e):
         if e.key() in KEYBOARD.keys():
             self.game.keys[KEYBOARD[e.key()]] = True
+        if e.key() == Qt.Key_P:
+            self.game.is_paused = not self.game.is_paused
+        if e.key() == Qt.Key_Escape:
+            self.close()
 
     def keyReleaseEvent(self, e):
         if e.key() in KEYBOARD.keys():
