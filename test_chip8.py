@@ -226,6 +226,13 @@ class TestDifferentThings(unittest.TestCase):
         self.game = CHIP8()
         self.v_registers = self.game.registers['v']
 
+    def test_exceptions(self):
+        opcodes = [0x8009, 0x880a, 0x800b, 0x800c, 0x800d, 0x800f, 0xf001,
+                   0xf021, 0xf905, 0xf451, 0xf028, 0xf006, 0xf204, 0xf005, ]
+        for opcode in opcodes:
+            with self.assertRaises(Exception):
+                self.game.emulate_cycle(opcode)
+
     def test_goto(self):
         self.game.opcode = 0x1000
         self.assertEqual(512, self.game.registers['pc'])
