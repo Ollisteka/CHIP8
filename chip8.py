@@ -102,6 +102,8 @@ class CHIP8:
         :param value: 16 битное значение
         :return:
         """
+        if value > 4096:
+            raise Exception("OutOfMemory")
         self.registers["pc"] = value
 
     @staticmethod
@@ -299,7 +301,7 @@ class CHIP8:
             if self.keys[key]:
                 pressed_key = key
         if pressed_key == NOT_A_KEY:
-            self.registers['pc'] -= 2
+            self.set_pc_to_val(self.registers['pc'] - 2)
             return
         x_num, _ = self.get_x_and_y()
         self.registers['v'][x_num] = pressed_key
@@ -343,7 +345,7 @@ class CHIP8:
         x_num, _ = self.get_x_and_y()
         value = (self.opcode & 0x00FF)
         if self.registers['v'][x_num] != value:
-            self.registers['pc'] += 2
+            self.set_pc_to_val(self.registers['pc'] + 2)
 
     def skip_if_vx_equals_value(self):
         """
@@ -354,7 +356,7 @@ class CHIP8:
         x_num, _ = self.get_x_and_y()
         value = (self.opcode & 0x00FF)
         if self.registers['v'][x_num] == value:
-            self.registers['pc'] += 2
+            self.set_pc_to_val(self.registers['pc'] + 2)
 
     def skip_if_vx_equals_vy(self):
         """
@@ -366,7 +368,7 @@ class CHIP8:
         x_value = self.registers['v'][x_num]
         y_value = self.registers['v'][y_num]
         if x_value == y_value:
-            self.registers['pc'] += 2
+            self.set_pc_to_val(self.registers['pc'] + 2)
 
     def skip_if_vx_not_equals_vy(self):
         """
@@ -378,7 +380,7 @@ class CHIP8:
         x_value = self.registers['v'][x_num]
         y_value = self.registers['v'][y_num]
         if x_value != y_value:
-            self.registers['pc'] += 2
+            self.set_pc_to_val(self.registers['pc'] + 2)
 
     def put_delay_to_vx(self):
         """
@@ -488,7 +490,7 @@ class CHIP8:
         """
         x_num, _ = self.get_x_and_y()
         if self.keys[self.registers['v'][x_num]]:
-            self.registers['pc'] += 2
+            self.set_pc_to_val(self.registers['pc'] + 2)
 
     def skip_if_key_not_pressed(self):
         """
@@ -499,7 +501,7 @@ class CHIP8:
         """
         x_num, _ = self.get_x_and_y()
         if not self.keys[self.registers['v'][x_num]]:
-            self.registers['pc'] += 2
+            self.set_pc_to_val(self.registers['pc'] + 2)
 
     def skip_if_key(self):
         """
@@ -523,6 +525,8 @@ class CHIP8:
         РС присвоить значение NNN
         :return:
         """
+        if self.registers["sp"] >= 16:
+            raise Exception("StackOverflow")
         self.registers["sp"] += 1
         self.stack[self.registers["sp"]] = self.registers["pc"]
         self.set_pc_to_val(self.opcode & 0x0FFF)
@@ -578,10 +582,12 @@ class CHIP8:
 
                 if bit_at_idx == prev_bit_at_idx == 1:
                     self.registers['v'][15] = 1
+                    self.screen[x_coord][y_coord] = 0
+                    self.draw_flag = True
 
-                self.screen[x_coord][y_coord] ^= bit_at_idx
-
-        self.draw_flag = True
+                if bit_at_idx != prev_bit_at_idx:
+                    self.screen[x_coord][y_coord] = 1
+                    self.draw_flag = True
 
     def clear_screen(self):
         """
@@ -589,7 +595,9 @@ class CHIP8:
         Функция "очищает" экран, устанавливая каждый пиксель в ноль
         :return:
         """
-        self.screen = self.__init_screen()
+        for y in range(32):
+            for x in range(64):
+                self.screen[x][y] = 0
 
     def put_value_to_index(self):
         """
@@ -617,6 +625,8 @@ class CHIP8:
         :param opcode:
         :return:
         """
+
+        # print(hex(self.opcode))
         if self.is_paused:
             return
 
@@ -627,7 +637,7 @@ class CHIP8:
             self.opcode = opcode
 
         operation = (self.opcode & 0xF000) >> 12
-        self.registers['pc'] += 2
+        self.set_pc_to_val(self.registers['pc'] + 2)
         try:
             self.operation_table[operation]()
         except KeyError:
@@ -635,12 +645,14 @@ class CHIP8:
                 "Operation {} is not supported".format(hex(self.opcode)))
 
         self.__delay_sync += 1
-        if self.__delay_sync % 10 == 0:
+        if self.__delay_sync == 10000:
+            self.__delay_sync = 0
+        if self.__delay_sync != 0 and self.__delay_sync % 2000 == 0:
             if self.timers['delay'] > 0:
                 self.timers['delay'] -= 1
 
-        if self.timers['sound'] > 0:
-            self.timers['sound'] -= 1
+            if self.timers['sound'] > 0:
+                self.timers['sound'] -= 1
 
     def load_rom(self, rom):
         """
