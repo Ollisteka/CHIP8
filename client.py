@@ -2,7 +2,6 @@ import argparse
 import os
 import sys
 import threading
-import time
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import Qt, QUrl
@@ -70,7 +69,7 @@ class GameThread(QtCore.QObject):
         while self.game.running:
             if self.stop_running:
                 sys.exit()
-            time.sleep(.002)
+            # time.sleep(1/106000)
             self.game.emulate_cycle()
 
             if self.game.draw_flag:

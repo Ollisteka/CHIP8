@@ -9,6 +9,26 @@ class TestHelperFunctions(unittest.TestCase):
         self.game = CHIP8()
         self.v_registers = self.game.registers['v']
 
+    def test_get_x_and_y(self):
+        self.game.opcode = 0x0120
+        x, y = self.game.get_x_and_y()
+        self.assertEqual(1, x)
+        self.assertEqual(2, y)
+
+    def test_set_pc_to_value(self):
+        with self.assertRaises(Exception):
+            self.game.set_pc_to_val(-999)
+
+    def test_out_of_memory(self):
+        with self.assertRaises(Exception):
+            for x in range(4096):
+                self.game.emulate_cycle(opcode=0x0111)
+
+    def test_stack_overflow(self):
+        with self.assertRaises(Exception):
+            for x in range(18):
+                self.game.emulate_cycle(opcode=0x2111)
+
     def test_clear_screen(self):
         for i in range(2, 10):
             for j in range(1, 6):
@@ -19,6 +39,19 @@ class TestHelperFunctions(unittest.TestCase):
             for j in range(32):
                 self.assertEqual(0, self.game.screen[i][j])
 
+    def test_game_is_paused(self):
+        self.game.emulate_cycle(0x0111)
+        self.assertEqual(514, self.game.registers["pc"])
+        self.game.is_paused = True
+        self.game.emulate_cycle(0x0111)
+        self.assertEqual(514, self.game.registers["pc"])
+
+    def test_extract_opcode_from_memory(self):
+        self.game.memory[512] = 0x0f
+        self.game.memory[513] = 0x00ff
+        self.game.emulate_cycle()
+        self.assertEqual(0x0fff, self.game.opcode)
+        self.assertEqual(514, self.game.registers["pc"])
 
 class TestLogicalOperations(unittest.TestCase):
     """
@@ -154,6 +187,43 @@ class TestFFunctions(unittest.TestCase):
         self.game = CHIP8()
         self.v_registers = self.game.registers['v']
 
+    def test_put_key_to_vx(self):
+        for i in range(12):
+            self.assertEqual(512, self.game.registers['pc'])
+            self.assertEqual(0, self.v_registers[1])
+            self.game.emulate_cycle(opcode=0xf10a)
+            self.assertEqual(512, self.game.registers['pc'])
+            self.assertEqual(0, self.v_registers[1])
+        self.game.keys[10] = True
+        self.game.emulate_cycle(opcode=0xf10a)
+        self.assertEqual(514, self.game.registers['pc'])
+        self.assertEqual(10, self.v_registers[1])
+        self.assertEqual(False, self.game.keys[10])
+
+    def test_skip_if_key_pressed(self):
+        self.v_registers[1] = 1
+        self.game.emulate_cycle(0xe19e)
+        self.assertEqual(514, self.game.registers["pc"])
+        self.game.keys[1] = True
+        self.game.emulate_cycle(0xe19e)
+        self.assertEqual(518, self.game.registers["pc"])
+
+    def test_skip_if_key_not_pressed(self):
+        self.v_registers[1] = 1
+        self.game.keys[1] = True
+        self.game.emulate_cycle(0xe1a1)
+        self.assertEqual(514, self.game.registers["pc"])
+        self.game.keys[1] = False
+        self.game.emulate_cycle(0xe1a1)
+        self.assertEqual(518, self.game.registers["pc"])
+
+    def test_put_vx_to_sound(self):
+        self.game.opcode = 0xf218
+        self.v_registers[2] = 101
+        self.assertEqual(0, self.game.timers['sound'])
+        self.game.put_vx_to_sound()
+        self.assertEqual(101, self.game.timers['sound'])
+
     def test_put_delay_timer_to_reg(self):
         self.game.opcode = 0xf207
         self.game.timers['delay'] = 12
@@ -228,7 +298,8 @@ class TestDifferentThings(unittest.TestCase):
 
     def test_exceptions(self):
         opcodes = [0x8009, 0x880a, 0x800b, 0x800c, 0x800d, 0x800f, 0xf001,
-                   0xf021, 0xf905, 0xf451, 0xf028, 0xf006, 0xf204, 0xf005, ]
+                   0xf021, 0xf905, 0xf451, 0xf028, 0xf006, 0xf204, 0xf005,
+                   0xe1a3]
         for opcode in opcodes:
             with self.assertRaises(Exception):
                 self.game.emulate_cycle(opcode)
