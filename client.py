@@ -1,8 +1,6 @@
 import argparse
 import os
 import sys
-import threading
-import time
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import Qt, QUrl
@@ -52,34 +50,6 @@ def main():
 
     app.exec_()
 
-
-class GameThread(QtCore.QObject):
-    draw_signal = QtCore.pyqtSignal()
-    sound_signal = QtCore.pyqtSignal()
-    stop_running = False
-
-    def __init__(self, game, rom):
-        super().__init__()
-        self._abort = False
-        self.game = game
-        self.rom = rom
-
-    def start_game(self):
-        self.game.load_rom(self.rom)
-
-        while self.game.running:
-            if self.stop_running:
-                sys.exit()
-            time.sleep(.002)
-            self.game.emulate_cycle()
-
-            if self.game.draw_flag:
-                self.draw_signal.emit()
-                self.game.draw_flag = False
-            if self.game.timers['sound'] == 1:
-                self.sound_signal.emit()
-
-
 class GameWindow(QMainWindow):
     def __init__(self, rom, parent=None):
         super().__init__(parent)
@@ -95,23 +65,29 @@ class GameWindow(QMainWindow):
         self.player = QMediaPlayer()
         self.player.setMedia(content)
 
-        self.game_thread = GameThread(self.game, rom)
-        self.game_thread.draw_signal.connect(self.call_repaint)
-        self.game_thread.sound_signal.connect(self.make_sound)
-        thread = threading.Thread(target=self.game_thread.start_game)
-        thread.start()
+        self.sound_delay_timer = QtCore.QTimer(self)
+        self.sound_delay_timer.setInterval(30)
+        self.sound_delay_timer.timeout.connect(self.game.decrement_timers)
 
-    @QtCore.pyqtSlot()
-    def call_repaint(self):
-        self.repaint()
+        self.game_timer = QtCore.QTimer(self)
+        self.game_timer.setInterval(0)
+        self.game_timer.timeout.connect(self.execute_instructions)
 
-    @QtCore.pyqtSlot()
-    def make_sound(self):
-        self.player.play()
+        self.game.load_rom(self.rom)
+        self.sound_delay_timer.start()
+        self.game_timer.start()
 
-    def closeEvent(self, event):
-        self.game_thread.stop_running = True
-        event.accept()
+    def execute_instructions(self):
+        if not self.game.running:
+            sys.exit()
+
+        self.game.emulate_cycle()
+
+        if self.game.draw_flag:
+            self.repaint()
+            self.game.draw_flag = False
+        if self.game.timers['sound'] == 1:
+            self.player.play()
 
     def keyPressEvent(self, e):
         if e.key() in KEYBOARD.keys():

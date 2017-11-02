@@ -102,9 +102,11 @@ class CHIP8:
         :param value: 16 битное значение
         :return:
         """
+        if value < 0:
+            raise Exception("You can't address negative memory!")
         if value > 4096:
-            raise Exception("OutOfMemory")
-        self.registers["pc"] = value
+            raise Exception("Out of memory!")
+        self.registers["pc"] = value & 0xFFFF
 
     @staticmethod
     def __init_screen():
@@ -122,10 +124,8 @@ class CHIP8:
         Загружает шрифты в память
         :return:
         """
-        offset = 0
-        for item in FONTS:
-            self.memory[offset] = item
-            offset += 1
+        for index, item in enumerate(FONTS):
+            self.memory[index] = item
 
     def jump_to_address_plus_v0(self):
         """
@@ -465,9 +465,9 @@ class CHIP8:
         x_num, _ = self.get_x_and_y()
         source = self.registers['v'][x_num]
         idx = self.registers['index']
-        self.memory[idx] = int(source / 100)
-        self.memory[idx + 1] = int((source / 10) % 10)
-        self.memory[idx + 2] = int((source % 100) % 10)
+        self.memory[idx] = source // 100
+        self.memory[idx + 1] = ((source // 10) % 10)
+        self.memory[idx + 2] = ((source % 100) % 10)
 
     def call_f_operations(self):
         """
@@ -494,7 +494,7 @@ class CHIP8:
 
     def skip_if_key_not_pressed(self):
         """
-        opcode: 0xeX9E
+        opcode: 0xeXa1
         Пропустить следующую инструкцию, если клавиша с кодом,
         лежащим в регистре VX НЕ нажата
         :return:
@@ -526,7 +526,7 @@ class CHIP8:
         :return:
         """
         if self.registers["sp"] >= 16:
-            raise Exception("StackOverflow")
+            raise Exception("Stack Overflow!")
         self.registers["sp"] += 1
         self.stack[self.registers["sp"]] = self.registers["pc"]
         self.set_pc_to_val(self.opcode & 0x0FFF)
@@ -582,12 +582,10 @@ class CHIP8:
 
                 if bit_at_idx == prev_bit_at_idx == 1:
                     self.registers['v'][15] = 1
-                    self.screen[x_coord][y_coord] = 0
-                    self.draw_flag = True
 
-                if bit_at_idx != prev_bit_at_idx:
-                    self.screen[x_coord][y_coord] = 1
-                    self.draw_flag = True
+                self.screen[x_coord][y_coord] ^= bit_at_idx
+
+        self.draw_flag = True
 
     def clear_screen(self):
         """
@@ -625,8 +623,6 @@ class CHIP8:
         :param opcode:
         :return:
         """
-
-        # print(hex(self.opcode))
         if self.is_paused:
             return
 
@@ -644,15 +640,18 @@ class CHIP8:
             raise Exception(
                 "Operation {} is not supported".format(hex(self.opcode)))
 
-        self.__delay_sync += 1
-        if self.__delay_sync == 10000:
-            self.__delay_sync = 0
-        if self.__delay_sync != 0 and self.__delay_sync % 2000 == 0:
-            if self.timers['delay'] > 0:
-                self.timers['delay'] -= 1
+            # self.__delay_sync += 1
+            # if self.__delay_sync == 10000:
+            #     self.__delay_sync = 0
+            # if self.__delay_sync % 2000 == 0:
+            # if self.__delay_sync % 30 == 0:
 
-            if self.timers['sound'] > 0:
-                self.timers['sound'] -= 1
+    def decrement_timers(self):
+        if self.timers['delay'] > 0:
+            self.timers['delay'] -= 1
+
+        if self.timers['sound'] > 0:
+            self.timers['sound'] -= 1
 
     def load_rom(self, rom):
         """
