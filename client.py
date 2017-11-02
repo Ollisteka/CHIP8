@@ -33,6 +33,7 @@ KEYBOARD = {
 PIXEL_HEIGHT = 10
 PIXEL_WIDTH = 10
 
+LOCK = threading.Lock()
 
 def main():
     parser = argparse.ArgumentParser(
@@ -85,41 +86,47 @@ class GameWindow(QMainWindow):
 
     def execute_instructions(self):
         while self.game.running:
-            self.game.emulate_cycle()
-            if self.game.draw_flag:
-                self.repaint()
-                self.game.draw_flag = False
-            if self.game.timers['sound'] == 1:
-                self.player.play()
+            with LOCK:
+                self.game.emulate_cycle()
+                if self.game.draw_flag:
+                    self.update()
+                    self.game.draw_flag = False
+                if self.game.timers['sound'] == 1:
+                    self.player.play()
 
     def decrement_sound_timer(self):
-        if self.game.timers['sound'] > 0:
-            self.game.timers['sound'] -= 1
+        with LOCK:
+            if self.game.timers['sound'] > 0:
+                self.game.timers['sound'] -= 1
 
     def decrement_delay_timer(self):
-        if self.game.timers['delay'] > 0:
-            self.game.timers['delay'] -= 1
+        with LOCK:
+            if self.game.timers['delay'] > 0:
+                self.game.timers['delay'] -= 1
 
     def closeEvent(self, event):
         self.game.running = False
         event.accept()
 
     def keyPressEvent(self, e):
-        if e.key() in KEYBOARD.keys():
-            self.game.keys[KEYBOARD[e.key()]] = True
-        if e.key() == Qt.Key_P:
-            self.game.is_paused = not self.game.is_paused
-        if e.key() == Qt.Key_Escape:
-            self.close()
+        with LOCK:
+            if e.key() in KEYBOARD.keys():
+                self.game.keys[KEYBOARD[e.key()]] = True
+            if e.key() == Qt.Key_P:
+                self.game.is_paused = not self.game.is_paused
+            if e.key() == Qt.Key_Escape:
+                self.close()
 
     def keyReleaseEvent(self, e):
-        if e.key() in KEYBOARD.keys():
-            self.game.keys[KEYBOARD[e.key()]] = False
+        with LOCK:
+            if e.key() in KEYBOARD.keys():
+                self.game.keys[KEYBOARD[e.key()]] = False
 
     def paintEvent(self, e):
         qp = QPainter()
         qp.begin(self)
-        self.draw(qp)
+        with LOCK:
+            self.draw(qp)
         qp.end()
 
     def draw(self, qp):
