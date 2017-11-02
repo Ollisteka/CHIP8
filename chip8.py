@@ -640,18 +640,13 @@ class CHIP8:
             raise Exception(
                 "Operation {} is not supported".format(hex(self.opcode)))
 
-            # self.__delay_sync += 1
-            # if self.__delay_sync == 10000:
-            #     self.__delay_sync = 0
-            # if self.__delay_sync % 2000 == 0:
-            # if self.__delay_sync % 30 == 0:
-
-    def decrement_timers(self):
-        if self.timers['delay'] > 0:
-            self.timers['delay'] -= 1
-
+    def decrement_sound_timer(self):
         if self.timers['sound'] > 0:
             self.timers['sound'] -= 1
+
+    def decrement_delay_timer(self):
+        if self.timers['delay'] > 0:
+            self.timers['delay'] -= 1
 
     def load_rom(self, rom):
         """

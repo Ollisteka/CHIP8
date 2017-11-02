@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import threading
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import Qt, QUrl
@@ -50,6 +51,7 @@ def main():
 
     app.exec_()
 
+
 class GameWindow(QMainWindow):
     def __init__(self, rom, parent=None):
         super().__init__(parent)
@@ -65,29 +67,42 @@ class GameWindow(QMainWindow):
         self.player = QMediaPlayer()
         self.player.setMedia(content)
 
-        self.sound_delay_timer = QtCore.QTimer(self)
-        self.sound_delay_timer.setInterval(30)
-        self.sound_delay_timer.timeout.connect(self.game.decrement_timers)
-
-        self.game_timer = QtCore.QTimer(self)
-        self.game_timer.setInterval(0)
-        self.game_timer.timeout.connect(self.execute_instructions)
-
         self.game.load_rom(self.rom)
-        self.sound_delay_timer.start()
-        self.game_timer.start()
+
+        self.delay_timer = QtCore.QTimer(self)
+        self.sound_timer = QtCore.QTimer(self)
+
+        self.sound_timer.setInterval(30)
+        self.sound_timer.timeout.connect(self.decrement_sound_timer)
+        self.sound_timer.start()
+
+        self.delay_timer.setInterval(30)
+        self.delay_timer.timeout.connect(self.decrement_delay_timer)
+        self.delay_timer.start()
+
+        thread = threading.Thread(target=self.execute_instructions)
+        thread.start()
 
     def execute_instructions(self):
-        if not self.game.running:
-            sys.exit()
+        while self.game.running:
+            self.game.emulate_cycle()
+            if self.game.draw_flag:
+                self.repaint()
+                self.game.draw_flag = False
+            if self.game.timers['sound'] == 1:
+                self.player.play()
 
-        self.game.emulate_cycle()
+    def decrement_sound_timer(self):
+        if self.game.timers['sound'] > 0:
+            self.game.timers['sound'] -= 1
 
-        if self.game.draw_flag:
-            self.repaint()
-            self.game.draw_flag = False
-        if self.game.timers['sound'] == 1:
-            self.player.play()
+    def decrement_delay_timer(self):
+        if self.game.timers['delay'] > 0:
+            self.game.timers['delay'] -= 1
+
+    def closeEvent(self, event):
+        self.game.running = False
+        event.accept()
 
     def keyPressEvent(self, e):
         if e.key() in KEYBOARD.keys():
