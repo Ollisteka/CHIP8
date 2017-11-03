@@ -3,7 +3,7 @@ import os
 import sys
 import threading
 
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QPainter
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
@@ -33,28 +33,34 @@ KEYBOARD = {
 PIXEL_HEIGHT = 10
 PIXEL_WIDTH = 10
 
-LOCK = threading.Lock()
 
 def main():
     parser = argparse.ArgumentParser(
         usage='{} rom'.format(
             os.path.basename(
                 sys.argv[0])),
-        description='CHIP8 emulator. Play a game which is 30 years old!')
+        description='CHIP8 emulator. Play a game which is 30 years old!',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('rom', type=str, help='way to rom file')
+    parser.add_argument('-s', '--speed', type=int, default=12000,
+                        help='try to adjust CPU speed. The bigger the value '
+                             'is, the slower the game speed gets')
+    parser.add_argument('-d', '--delay', type=int, default=10,
+                        help='try to adjust delay timer. The bigger the '
+                             'value is, the slower things move')
 
     args = parser.parse_args()
 
     app = QtWidgets.QApplication(sys.argv)
 
-    window = GameWindow(args.rom)
+    window = GameWindow(args.rom, args.speed, args.delay)
     window.show()
 
     app.exec_()
 
 
 class GameWindow(QMainWindow):
-    def __init__(self, rom, parent=None):
+    def __init__(self, rom, speed, delay, parent=None):
         super().__init__(parent)
         self.rom = rom
         self.setWindowTitle(rom)
@@ -70,23 +76,15 @@ class GameWindow(QMainWindow):
 
         self.game.load_rom(self.rom)
 
-        self.delay_timer = QtCore.QTimer(self)
-        self.sound_timer = QtCore.QTimer(self)
-
-        self.sound_timer.setInterval(30)
-        self.sound_timer.timeout.connect(self.decrement_sound_timer)
-        self.sound_timer.start()
-
-        self.delay_timer.setInterval(30)
-        self.delay_timer.timeout.connect(self.decrement_delay_timer)
-        self.delay_timer.start()
-
-        thread = threading.Thread(target=self.execute_instructions)
+        thread = threading.Thread(target=self.execute_instructions,
+                                  args=(delay, speed))
         thread.start()
 
-    def execute_instructions(self):
+    def execute_instructions(self, delay, speed):
         while self.game.running:
-            with LOCK:
+            for _ in range(delay):
+                for _ in range(speed):
+                    continue
                 self.game.emulate_cycle()
                 if self.game.draw_flag:
                     self.update()
@@ -94,39 +92,29 @@ class GameWindow(QMainWindow):
                 if self.game.timers['sound'] == 1:
                     self.player.play()
 
-    def decrement_sound_timer(self):
-        with LOCK:
-            if self.game.timers['sound'] > 0:
-                self.game.timers['sound'] -= 1
-
-    def decrement_delay_timer(self):
-        with LOCK:
-            if self.game.timers['delay'] > 0:
-                self.game.timers['delay'] -= 1
+            self.game.decrement_sound_timer()
+            self.game.decrement_delay_timer()
 
     def closeEvent(self, event):
         self.game.running = False
         event.accept()
 
     def keyPressEvent(self, e):
-        with LOCK:
-            if e.key() in KEYBOARD.keys():
-                self.game.keys[KEYBOARD[e.key()]] = True
-            if e.key() == Qt.Key_P:
-                self.game.is_paused = not self.game.is_paused
-            if e.key() == Qt.Key_Escape:
-                self.close()
+        if e.key() in KEYBOARD.keys():
+            self.game.keys[KEYBOARD[e.key()]] = True
+        if e.key() == Qt.Key_P:
+            self.game.is_paused = not self.game.is_paused
+        if e.key() == Qt.Key_Escape:
+            self.close()
 
     def keyReleaseEvent(self, e):
-        with LOCK:
-            if e.key() in KEYBOARD.keys():
-                self.game.keys[KEYBOARD[e.key()]] = False
+        if e.key() in KEYBOARD.keys():
+            self.game.keys[KEYBOARD[e.key()]] = False
 
     def paintEvent(self, e):
         qp = QPainter()
         qp.begin(self)
-        with LOCK:
-            self.draw(qp)
+        self.draw(qp)
         qp.end()
 
     def draw(self, qp):
