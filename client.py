@@ -4,7 +4,7 @@ import sys
 import threading
 
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtCore import Qt, QUrl, QTimer
 from PyQt5.QtGui import QPainter
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from PyQt5.QtWidgets import QMainWindow
@@ -53,7 +53,7 @@ def main():
 
     app = QtWidgets.QApplication(sys.argv)
 
-    window = GameWindow(args.rom, args.speed, args.delay)
+    window = GameWindow(args.rom, args.speed + 1, args.delay + 1)
     window.show()
 
     app.exec_()
@@ -76,9 +76,18 @@ class GameWindow(QMainWindow):
 
         self.game.load_rom(self.rom)
 
+        self.start_timer(delay, self.game.decrement_sound_timer)
+        self.start_timer(delay, self.game.decrement_delay_timer)
+
         thread = threading.Thread(target=self.execute_instructions,
                                   args=(delay, speed))
         thread.start()
+
+    def start_timer(self, interval, func):
+        timer = QTimer(self)
+        timer.setInterval(interval)
+        timer.timeout.connect(func)
+        timer.start()
 
     def execute_instructions(self, delay, speed):
         while self.game.running:
@@ -91,9 +100,6 @@ class GameWindow(QMainWindow):
                     self.game.draw_flag = False
                 if self.game.timers['sound'] == 1:
                     self.player.play()
-
-            self.game.decrement_sound_timer()
-            self.game.decrement_delay_timer()
 
     def closeEvent(self, event):
         self.game.running = False
