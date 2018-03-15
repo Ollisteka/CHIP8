@@ -1,6 +1,9 @@
 ﻿CHIP8 emulator
 Поиграй в игры 30-летней давности!
 
+Перед первым запуском выполнить следующую команду (для установки графической библиотеки):
+    Windows: pip install -r requirements.txt
+    Linux: pip3 install -r requirements.txt
 
 Справка по запуску:
     Windows: python client.py --help
