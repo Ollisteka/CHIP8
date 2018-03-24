@@ -2,12 +2,13 @@ import argparse
 import os
 import sys
 import threading
+from pprint import pprint
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QUrl, QTimer
 from PyQt5.QtGui import QPainter
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow, QPushButton, QGridLayout, QLabel, QVBoxLayout
 
 from chip8 import CHIP8
 
@@ -33,6 +34,7 @@ KEYBOARD = {
 PIXEL_HEIGHT = 10
 PIXEL_WIDTH = 10
 
+DEBUG_WINDOW_WIDTH = 320;
 
 def main():
     parser = argparse.ArgumentParser(
@@ -59,6 +61,35 @@ def main():
     app.exec_()
 
 
+class ScreenFillerWidget(QtWidgets.QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setFixedSize(64 * PIXEL_WIDTH, 32 * PIXEL_HEIGHT)
+
+
+class DebugWidget(QtWidgets.QWidget):
+    def __init__(self, game, parent=None):
+        super().__init__(parent)
+
+        self.game = game
+        self.current_opcode = QLabel()
+        self.current_opcode.setText("CURRENT OPCODE")
+
+        self.execute_button = QPushButton()
+        self.execute_button.setText("EXECUTE")
+        self.execute_button.released.connect(self.execute_opcode)
+
+        layout = QVBoxLayout()
+        layout.setSpacing(5)
+        layout.addWidget(self.current_opcode)
+        layout.addWidget(self.execute_button)
+
+        self.setLayout(layout)
+
+    def execute_opcode(self):
+        pass
+
 class GameWindow(QMainWindow):
     def __init__(self, rom, speed, delay, parent=None):
         super().__init__(parent)
@@ -67,12 +98,20 @@ class GameWindow(QMainWindow):
 
         self.game = CHIP8()
 
-        self.setFixedSize(64 * PIXEL_WIDTH, 32 * PIXEL_HEIGHT)
+        self.setFixedSize(64 * PIXEL_WIDTH + DEBUG_WINDOW_WIDTH, 32 * PIXEL_HEIGHT)
 
         url = QUrl.fromLocalFile(os.path.abspath("sound.wav"))
         content = QMediaContent(url)
         self.player = QMediaPlayer()
         self.player.setMedia(content)
+
+        _layout = QGridLayout()
+        _layout.setSpacing(5)
+        _layout.addWidget(ScreenFillerWidget(), 0, 0)
+        _layout.addWidget(DebugWidget(self.game), 0, 1)
+        _window = QtWidgets.QWidget()
+        _window.setLayout(_layout)
+        self.setCentralWidget(_window)
 
         self.game.load_rom(self.rom)
 
@@ -95,6 +134,9 @@ class GameWindow(QMainWindow):
                 for _ in range(speed):
                     continue
                 self.game.emulate_cycle()
+
+                pprint(self.game.get_reg_dump())
+
                 if self.game.draw_flag:
                     self.update()
                     self.game.draw_flag = False

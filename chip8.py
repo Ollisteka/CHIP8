@@ -86,6 +86,17 @@ class CHIP8:
             0x65: self.put_memory_to_v_reg,
         }
 
+    def get_reg_dump(self):
+        result = {}
+        v_regs = {i: bin(self.registers["v"][i]) for i in range(16)}
+        result["v"] = v_regs
+        result["current_opcode"] = hex(self.opcode)
+        for register in self.registers:
+            if register == "v":
+                continue
+            result[register] = self.registers[register]
+        return result
+
     def get_x_and_y(self):
         """
         opcode: 0x0XY*
