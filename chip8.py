@@ -94,8 +94,12 @@ class CHIP8:
         for register in self.registers:
             if register == "v":
                 continue
-            result[register] = self.registers[register]
+            result[register] = str(self.registers[register])
+        result["timers"] = {key: str(val) for key, val in self.timers.items()}
         return result
+
+    def get_memory_dump(self):
+        return [hex(b) for b in self.memory]
 
     def get_x_and_y(self):
         """

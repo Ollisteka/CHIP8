@@ -2,13 +2,13 @@ import argparse
 import os
 import sys
 import threading
-from pprint import pprint
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QUrl, QTimer
-from PyQt5.QtGui import QPainter
+from PyQt5.QtGui import QPainter, QFont
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
-from PyQt5.QtWidgets import QMainWindow, QPushButton, QGridLayout, QLabel, QVBoxLayout
+from PyQt5.QtWidgets import QMainWindow, QPushButton, QGridLayout, QLabel, \
+    QLineEdit, QVBoxLayout
 
 from chip8 import CHIP8
 
@@ -31,10 +31,11 @@ KEYBOARD = {
     Qt.Key_V: 0xf,
 }
 
-PIXEL_HEIGHT = 10
-PIXEL_WIDTH = 10
+PIXEL_HEIGHT = 15
+PIXEL_WIDTH = 15
 
-DEBUG_WINDOW_WIDTH = 320;
+DEBUG_WINDOW_WIDTH = 400
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -71,24 +72,91 @@ class ScreenFillerWidget(QtWidgets.QWidget):
 class DebugWidget(QtWidgets.QWidget):
     def __init__(self, game, parent=None):
         super().__init__(parent)
-
+        super().setFont(QFont('Serif', 10, QFont.Light))
         self.game = game
-        self.current_opcode = QLabel()
-        self.current_opcode.setText("CURRENT OPCODE")
+        current_opcode_label = QLabel()
+        current_opcode_label.setText("Current opcode:")
+        current_opcode_label.setFont(QFont('Serif', 10, QFont.Bold))
+
+        reg_dump = self.game.get_reg_dump()
+
+        self.current_opcode = QLineEdit()
+        self.current_opcode.setText(reg_dump["current_opcode"])
+        self.current_opcode.setReadOnly(True)
+
+        self.v_reg_labels = self.get_v_reg_labels(reg_dump)
+        self.other_regs = self.get_other_regs(reg_dump)
 
         self.execute_button = QPushButton()
         self.execute_button.setText("EXECUTE")
         self.execute_button.released.connect(self.execute_opcode)
+        _cur_code_layout = QGridLayout()
+        _cur_code_layout.setSpacing(5)
+        _cur_code_layout.addWidget(current_opcode_label, 0, 0)
+        _cur_code_layout.addWidget(self.current_opcode, 0, 1)
+
+        _reg_layout = QGridLayout()
+        _reg_layout.setSpacing(3)
+        for i in range(0, len(self.v_reg_labels)):
+            label, line_edit = self.v_reg_labels[i]
+            _reg_layout.addWidget(label, i, 2)
+            _reg_layout.addWidget(line_edit, i, 3)
+        for i in range(0, len(self.other_regs)):
+            label, line_edit = self.other_regs[i]
+            _reg_layout.addWidget(label, i, 0)
+            _reg_layout.addWidget(line_edit, i, 1)
 
         layout = QVBoxLayout()
         layout.setSpacing(5)
-        layout.addWidget(self.current_opcode)
+        layout.addLayout(_cur_code_layout)
+        layout.addLayout(_reg_layout)
         layout.addWidget(self.execute_button)
-
         self.setLayout(layout)
 
+    def get_other_regs(self, reg_dump):
+        return [self.make_labeled_line_edit("Program "
+                                            "counter: ",
+                                            reg_dump["pc"]),
+
+                self.make_labeled_line_edit("Index register: ",
+                                            reg_dump[
+                                                "index"]),
+
+                self.make_labeled_line_edit("Stack pointer: ",
+                                            reg_dump["sp"]),
+
+                self.make_labeled_line_edit("Sound timer: ",
+                                            reg_dump["timers"]["sound"]),
+
+                self.make_labeled_line_edit("Delay timer: ",
+                                            reg_dump["timers"]["delay"]),
+                ]
+
+    def get_v_reg_labels(self, reg_dump):
+        v_regs = reg_dump["v"]
+        return [(self.make_label("V" + str(i) + ": "), self.make_line_edit(
+            v_regs[i]))
+                for i in v_regs]
+
+    def make_labeled_line_edit(self, description, text):
+        return self.make_label(description), self.make_line_edit(text)
+
+    def make_label(self, text):
+        label = QLabel()
+        label.setText(text)
+        label.setAlignment(Qt.AlignRight)
+        return label
+
+    def make_line_edit(self, text):
+        line_edit = QLineEdit()
+        line_edit.setText(text)
+        line_edit.setReadOnly(True)
+        return line_edit
+
     def execute_opcode(self):
-        pass
+        print("HEY")
+        # self.game.emulate_cycle()
+
 
 class GameWindow(QMainWindow):
     def __init__(self, rom, speed, delay, parent=None):
@@ -98,17 +166,20 @@ class GameWindow(QMainWindow):
 
         self.game = CHIP8()
 
-        self.setFixedSize(64 * PIXEL_WIDTH + DEBUG_WINDOW_WIDTH, 32 * PIXEL_HEIGHT)
+        self.setFixedSize(64 * PIXEL_WIDTH + DEBUG_WINDOW_WIDTH,
+                          32 * PIXEL_HEIGHT)
 
         url = QUrl.fromLocalFile(os.path.abspath("sound.wav"))
         content = QMediaContent(url)
         self.player = QMediaPlayer()
         self.player.setMedia(content)
 
+        self.debug_widget = DebugWidget(self.game)
+
         _layout = QGridLayout()
         _layout.setSpacing(5)
         _layout.addWidget(ScreenFillerWidget(), 0, 0)
-        _layout.addWidget(DebugWidget(self.game), 0, 1)
+        _layout.addWidget(self.debug_widget, 0, 1)
         _window = QtWidgets.QWidget()
         _window.setLayout(_layout)
         self.setCentralWidget(_window)
@@ -135,7 +206,7 @@ class GameWindow(QMainWindow):
                     continue
                 self.game.emulate_cycle()
 
-                pprint(self.game.get_reg_dump())
+                # pprint(self.game.get_reg_dump())
 
                 if self.game.draw_flag:
                     self.update()
