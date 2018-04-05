@@ -655,6 +655,11 @@ class CHIP8:
             raise Exception(
                 "Operation {} is not supported".format(hex(self.opcode)))
 
+    def get_opcode_docstring(self, opcode):
+        operation = (opcode & 0xF000) >> 12
+        possible_func = self.operation_table[operation]
+        return possible_func.__doc__
+
     def decrement_sound_timer(self):
         if self.timers['sound'] > 0:
             self.timers['sound'] -= 1
