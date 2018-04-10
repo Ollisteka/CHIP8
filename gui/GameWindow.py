@@ -93,13 +93,16 @@ class GameWindow(QMainWindow):
 
             self.game.emulate_cycle()
 
-            self.debug_widget.update_registers()
-
             if self.game.draw_flag:
                 self.update()
                 self.game.draw_flag = False
-            if self.game.timers['sound'] == 1:
-                self.player.play()
+
+        self.game.decrement_delay_timer()
+        self.game.decrement_sound_timer()
+        if self.game.timers['sound'] == 1:
+            self.player.play()
+
+        self.debug_widget.update_registers()
 
     def execute_instructions(self, delay, speed):
         while self.game.running:
@@ -107,8 +110,6 @@ class GameWindow(QMainWindow):
                 for _ in range(speed):
                     continue
                 self.game.emulate_cycle()
-
-                # pprint(self.game.get_reg_dump())
 
                 if self.game.draw_flag:
                     self.update()
