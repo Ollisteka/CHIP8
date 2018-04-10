@@ -40,11 +40,14 @@ class GameWindow(QMainWindow):
 
     def __init__(self, rom, speed, delay, parent=None):
         super().__init__(parent)
-
         self.rom = rom
         self.setWindowTitle(rom)
-
         self.game = CHIP8()
+
+        if not self.DEBUG:
+            global DEBUG_WINDOW_WIDTH, PIXEL_HEIGHT, PIXEL_WIDTH
+            DEBUG_WINDOW_WIDTH = 0
+            PIXEL_HEIGHT = PIXEL_WIDTH = 10
 
         self.setFixedSize(64 * PIXEL_WIDTH + DEBUG_WINDOW_WIDTH,
                           32 * PIXEL_HEIGHT)
@@ -53,31 +56,32 @@ class GameWindow(QMainWindow):
         content = QMediaContent(url)
         self.player = QMediaPlayer()
         self.player.setMedia(content)
+        self.game.load_rom(self.rom)
 
-        self.debug_widget = DebugWidget(self.game)
+        self.delay = delay
+        self.speed = speed
 
         _layout = QGridLayout()
         _layout.setSpacing(5)
         _layout.addWidget(ScreenFillerWidget(), 0, 0)
-        _layout.addWidget(self.debug_widget, 0, 1)
-        _window = QtWidgets.QWidget()
-        _window.setLayout(_layout)
-        self.setCentralWidget(_window)
 
-        self.game.load_rom(self.rom)
+        if self.DEBUG:
+            self.debug_widget = DebugWidget(self.game)
+            self.debug_widget.sig_execute.connect(self.execute_one_instruction)
+            _layout.addWidget(self.debug_widget, 0, 1)
 
-        self.start_timer(delay, self.game.decrement_sound_timer)
-        self.start_timer(delay, self.game.decrement_delay_timer)
+        else:
+            self.start_timer(delay, self.game.decrement_sound_timer)
+            self.start_timer(delay, self.game.decrement_delay_timer)
 
-        self.debug_widget.sig_execute.connect(self.execute_one_instruction)
-
-        self.delay = delay
-        self.speed = speed
-        if not self.DEBUG:
             thread = threading.Thread(target=self.execute_instructions,
                                       args=(delay, speed))
 
             thread.start()
+
+        _window = QtWidgets.QWidget()
+        _window.setLayout(_layout)
+        self.setCentralWidget(_window)
 
     def start_timer(self, interval, func):
         timer = QTimer(self)

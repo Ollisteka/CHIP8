@@ -16,7 +16,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('rom', type=str, help='way to rom file')
     parser.add_argument('--debug', action="store_true",
-                        help="Enable debug mode")
+                        help="enable debug mode")
     parser.add_argument('-s', '--speed', type=int, default=12000,
                         help='try to adjust CPU speed. The bigger the value '
                              'is, the slower the game speed gets')
