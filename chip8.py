@@ -426,6 +426,7 @@ class CHIP8:
 
     def call_logical_operation(self):
         """
+        ###
         Переключается между командами, начинающимися с 8
         :return:
         """
@@ -438,7 +439,8 @@ class CHIP8:
 
     def return_clear(self):
         """
-        Переключается между кодами, начинающимися с нуля
+        opcode: 0x00E0 - очистить экран.
+        opcode: 0x00EE - выйти из подзадачи
         :return:
         """
         operation = self.opcode & 0x0FFF
@@ -486,6 +488,7 @@ class CHIP8:
 
     def call_f_operations(self):
         """
+        ###
         Вызывает нужную команду для опкода вида 0xfNN
         :return:
         """
@@ -658,7 +661,18 @@ class CHIP8:
     def get_opcode_docstring(self, opcode):
         operation = (opcode & 0xF000) >> 12
         possible_func = self.operation_table[operation]
-        return possible_func.__doc__
+        doc = possible_func.__doc__
+        if "###" in doc:
+            try:
+                operation = self.opcode & 0x00FF
+                return self.f_operations_table[operation].__doc__
+            except KeyError:
+                try:
+                    operation = self.opcode & 0x000F
+                    return self.logical_operations_table[operation].__doc__
+                except KeyError:
+                    return doc
+        return doc
 
     def decrement_sound_timer(self):
         if self.timers['sound'] > 0:
