@@ -665,14 +665,14 @@ class CHIP8:
         if "###" in doc:
             try:
                 operation = self.opcode & 0x00FF
-                return self.f_operations_table[operation].__doc__
+                return self.f_operations_table[operation].__doc__.replace(":return:", "").strip('\n')
             except KeyError:
                 try:
                     operation = self.opcode & 0x000F
                     return self.logical_operations_table[operation].__doc__
                 except KeyError:
-                    return doc
-        return doc
+                    return doc.replace(":return:", "").strip('\n')
+        return doc.replace(":return:", "").strip('\n')
 
     def decrement_sound_timer(self):
         if self.timers['sound'] > 0:
