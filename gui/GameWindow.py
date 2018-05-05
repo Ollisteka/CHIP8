@@ -41,7 +41,10 @@ class GameWindow(QMainWindow):
     def __init__(self, rom, speed, delay, parent=None):
         super().__init__(parent)
         self.rom = rom
-        self.setWindowTitle(rom)
+        title = rom
+        if self.DEBUG:
+            title += " (DEBUG)"
+        self.setWindowTitle(title)
         self.game = CHIP8()
 
         if not self.DEBUG:
