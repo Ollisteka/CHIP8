@@ -1,5 +1,9 @@
 from random import randint
 
+from config import PC, V, SP, INDEX, SOUND, DELAY
+
+__all__ = ['CHIP8']
+
 FONTS = [
     0xF0, 0x90, 0x90, 0x90, 0xF0,  # 0
     0x20, 0x60, 0x20, 0x20, 0x70,  # 1
