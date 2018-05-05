@@ -8,7 +8,8 @@ from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from PyQt5.QtWidgets import QMainWindow, QGridLayout
 
 from chip8 import CHIP8
-from config import PIXEL_SIZE_DEBUG, KEYBOARD, WIDTH, HEIGHT
+# noinspection PyUnresolvedReferences
+from config import PIXEL_SIZE_DEBUG, PIXEL_SIZE, PIXEL_SIZE_DEBUG, KEYBOARD, WIDTH, HEIGHT
 from gui.DebugWidget import DebugWidget
 
 
@@ -27,14 +28,9 @@ class GameWindow(QMainWindow):
         if self.DEBUG:
             global PIXEL_SIZE
             PIXEL_SIZE = PIXEL_SIZE_DEBUG
-            print(PIXEL_SIZE_DEBUG)
-            print(PIXEL_SIZE)
         else:
             global DEBUG_WINDOW_WIDTH
             DEBUG_WINDOW_WIDTH = 0
-
-        print(PIXEL_SIZE)
-        print(DEBUG_WINDOW_WIDTH)
         self.setFixedSize(WIDTH * PIXEL_SIZE + DEBUG_WINDOW_WIDTH,
                           HEIGHT * PIXEL_SIZE)
 
