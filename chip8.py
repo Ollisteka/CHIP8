@@ -33,14 +33,14 @@ class CHIP8:
         self.__load_fonts()
         self.stack = [0] * 17
         self.registers = {
-            "pc": 512,  # 16 bit
-            "index": 0,  # 16 bit
-            "sp": 0,  # 16 bit
-            "v": {key: 0 for key in range(16)}  # 8 bit
+            PC: 512,  # 16 bit
+            INDEX: 0,  # 16 bit
+            SP: 0,  # 16 bit
+            V: {key: 0 for key in range(16)}  # 8 bit
         }
         self.timers = {
-            'delay': 0,  # 8 bit
-            'sound': 0,  # 8 bit
+            DELAY: 0,  # 8 bit
+            SOUND: 0,  # 8 bit
         }
         self.screen = self.__init_screen()
         self.keys = {key: False for key in range(0, 16)}
@@ -121,7 +121,7 @@ class CHIP8:
             raise Exception("You can't address negative memory!")
         if value > 4096:
             raise Exception("Out of memory!")
-        self.registers["pc"] = value & 0xFFFF
+        self.registers[PC] = value & 0xFFFF
 
     @staticmethod
     def __init_screen():
@@ -148,7 +148,7 @@ class CHIP8:
         Перейти по адресу NNN + V0
         :return:
         """
-        self.set_pc_to_val(self.registers['v'][0] + (self.opcode & 0x0FFF))
+        self.set_pc_to_val(self.registers[V][0] + (self.opcode & 0x0FFF))
 
     def sum_value_and_vx(self):
         """
@@ -158,8 +158,8 @@ class CHIP8:
         """
         number = self.opcode & 0x00FF
         reg_num = (self.opcode & 0x0F00) >> 8
-        temp = self.registers['v'][reg_num] + number
-        self.registers['v'][reg_num] = temp & 0x00FF
+        temp = self.registers[V][reg_num] + number
+        self.registers[V][reg_num] = temp & 0x00FF
 
     def put_vy_to_vx(self):
         """
@@ -168,7 +168,7 @@ class CHIP8:
         :return:
         """
         x_num, y_num = self.get_x_and_y()
-        self.registers['v'][x_num] = self.registers['v'][y_num]
+        self.registers[V][x_num] = self.registers[V][y_num]
 
     def vx_or_vy(self):
         """
@@ -177,9 +177,9 @@ class CHIP8:
         :return:
         """
         x_num, y_num = self.get_x_and_y()
-        x_value = self.registers['v'][x_num]
-        y_value = self.registers['v'][y_num]
-        self.registers['v'][x_num] = x_value | y_value
+        x_value = self.registers[V][x_num]
+        y_value = self.registers[V][y_num]
+        self.registers[V][x_num] = x_value | y_value
 
     def vx_and_vy(self):
         """
@@ -188,9 +188,9 @@ class CHIP8:
         :return:
         """
         x_num, y_num = self.get_x_and_y()
-        x_value = self.registers['v'][x_num]
-        y_value = self.registers['v'][y_num]
-        self.registers['v'][x_num] = x_value & y_value
+        x_value = self.registers[V][x_num]
+        y_value = self.registers[V][y_num]
+        self.registers[V][x_num] = x_value & y_value
 
     def vx_xor_vy(self):
         """
@@ -199,9 +199,9 @@ class CHIP8:
         :return:
         """
         x_num, y_num = self.get_x_and_y()
-        x_value = self.registers['v'][x_num]
-        y_value = self.registers['v'][y_num]
-        self.registers['v'][x_num] = x_value ^ y_value
+        x_value = self.registers[V][x_num]
+        y_value = self.registers[V][y_num]
+        self.registers[V][x_num] = x_value ^ y_value
 
     def sum_vx_and_vy(self):
         """
@@ -210,15 +210,15 @@ class CHIP8:
         :return:
         """
         x_num, y_num = self.get_x_and_y()
-        x_value = self.registers['v'][x_num]
-        y_value = self.registers['v'][y_num]
+        x_value = self.registers[V][x_num]
+        y_value = self.registers[V][y_num]
         temp = x_value + y_value
         if temp >= 256:
-            self.registers['v'][15] = 1
-            self.registers['v'][x_num] = temp & 0x00FF
+            self.registers[V][15] = 1
+            self.registers[V][x_num] = temp & 0x00FF
         else:
-            self.registers['v'][15] = 0
-            self.registers['v'][x_num] = temp
+            self.registers[V][15] = 0
+            self.registers[V][x_num] = temp
 
     def subtract_vx_and_vy(self):
         """
@@ -227,14 +227,14 @@ class CHIP8:
         :return:
         """
         x_num, y_num = self.get_x_and_y()
-        x_value = self.registers['v'][x_num]
-        y_value = self.registers['v'][y_num]
+        x_value = self.registers[V][x_num]
+        y_value = self.registers[V][y_num]
         if x_value >= y_value:
-            self.registers['v'][15] = 1
-            self.registers['v'][x_num] = x_value - y_value
+            self.registers[V][15] = 1
+            self.registers[V][x_num] = x_value - y_value
         else:
-            self.registers['v'][15] = 0
-            self.registers['v'][x_num] = 256 + x_value - y_value
+            self.registers[V][15] = 0
+            self.registers[V][x_num] = 256 + x_value - y_value
 
     def subtract_vy_and_vx(self):
         """
@@ -243,14 +243,14 @@ class CHIP8:
         :return:
         """
         x_num, y_num = self.get_x_and_y()
-        x_value = self.registers['v'][x_num]
-        y_value = self.registers['v'][y_num]
+        x_value = self.registers[V][x_num]
+        y_value = self.registers[V][y_num]
         if y_value >= x_value:
-            self.registers['v'][15] = 1
-            self.registers['v'][x_num] = y_value - x_value
+            self.registers[V][15] = 1
+            self.registers[V][x_num] = y_value - x_value
         else:
-            self.registers['v'][15] = 0
-            self.registers['v'][x_num] = 256 + y_value - x_value
+            self.registers[V][15] = 0
+            self.registers[V][x_num] = 256 + y_value - x_value
 
     def shift_right_vx(self):
         """
@@ -259,12 +259,12 @@ class CHIP8:
         :return:
         """
         x_num = (self.opcode & 0x0F00) >> 8
-        x_value = self.registers['v'][x_num]
+        x_value = self.registers[V][x_num]
         if x_value & 1 == 1:
-            self.registers['v'][15] = 1
+            self.registers[V][15] = 1
         else:
-            self.registers['v'][15] = 0
-        self.registers['v'][x_num] = x_value >> 1
+            self.registers[V][15] = 0
+        self.registers[V][x_num] = x_value >> 1
 
     def shift_left_vx(self):
         """
@@ -273,12 +273,12 @@ class CHIP8:
         :return:
         """
         x_num = (self.opcode & 0x0F00) >> 8
-        x_value = self.registers['v'][x_num]
+        x_value = self.registers[V][x_num]
         if (bin(x_value))[2:].zfill(8)[0] == '1':
-            self.registers['v'][15] = 1
+            self.registers[V][15] = 1
         else:
-            self.registers['v'][15] = 0
-        self.registers['v'][x_num] = (x_value << 1) & 0x00FF
+            self.registers[V][15] = 0
+        self.registers[V][x_num] = (x_value << 1) & 0x00FF
 
     def put_v_reg_to_memory(self):
         """
@@ -288,9 +288,9 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        idx = self.registers['index']
+        idx = self.registers[INDEX]
         for i in range(x_num + 1):
-            self.memory[idx + i] = self.registers['v'][i]
+            self.memory[idx + i] = self.registers[V][i]
 
     def put_memory_to_v_reg(self):
         """
@@ -300,9 +300,9 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        idx = self.registers['index']
+        idx = self.registers[INDEX]
         for i in range(x_num + 1):
-            self.registers['v'][i] = self.memory[idx + i]
+            self.registers[V][i] = self.memory[idx + i]
 
     def put_key_to_vx(self):
         """
@@ -316,10 +316,10 @@ class CHIP8:
             if self.keys[key]:
                 pressed_key = key
         if pressed_key == NOT_A_KEY:
-            self.set_pc_to_val(self.registers['pc'] - 2)
+            self.set_pc_to_val(self.registers[PC] - 2)
             return
         x_num, _ = self.get_x_and_y()
-        self.registers['v'][x_num] = pressed_key
+        self.registers[V][x_num] = pressed_key
         self.keys[pressed_key] = False
 
     def sum_idx_and_vx(self):
@@ -329,8 +329,8 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        idx = self.registers['index']
-        self.registers['index'] = (self.registers['v'][x_num] + idx) & 0xFFFF
+        idx = self.registers[INDEX]
+        self.registers[INDEX] = (self.registers[V][x_num] + idx) & 0xFFFF
 
     def jump_to_address(self):
         """
@@ -349,7 +349,7 @@ class CHIP8:
         """
         x_num, _ = self.get_x_and_y()
         value = self.opcode & 0x00FF
-        self.registers['v'][x_num] = value & randint(0, 255)
+        self.registers[V][x_num] = value & randint(0, 255)
 
     def skip_if_vx_not_equals_value(self):
         """
@@ -359,8 +359,8 @@ class CHIP8:
         """
         x_num, _ = self.get_x_and_y()
         value = (self.opcode & 0x00FF)
-        if self.registers['v'][x_num] != value:
-            self.set_pc_to_val(self.registers['pc'] + 2)
+        if self.registers[V][x_num] != value:
+            self.set_pc_to_val(self.registers[PC] + 2)
 
     def skip_if_vx_equals_value(self):
         """
@@ -370,8 +370,8 @@ class CHIP8:
         """
         x_num, _ = self.get_x_and_y()
         value = (self.opcode & 0x00FF)
-        if self.registers['v'][x_num] == value:
-            self.set_pc_to_val(self.registers['pc'] + 2)
+        if self.registers[V][x_num] == value:
+            self.set_pc_to_val(self.registers[PC] + 2)
 
     def skip_if_vx_equals_vy(self):
         """
@@ -380,10 +380,10 @@ class CHIP8:
         :return:
         """
         x_num, y_num = self.get_x_and_y()
-        x_value = self.registers['v'][x_num]
-        y_value = self.registers['v'][y_num]
+        x_value = self.registers[V][x_num]
+        y_value = self.registers[V][y_num]
         if x_value == y_value:
-            self.set_pc_to_val(self.registers['pc'] + 2)
+            self.set_pc_to_val(self.registers[PC] + 2)
 
     def skip_if_vx_not_equals_vy(self):
         """
@@ -392,10 +392,10 @@ class CHIP8:
         :return:
         """
         x_num, y_num = self.get_x_and_y()
-        x_value = self.registers['v'][x_num]
-        y_value = self.registers['v'][y_num]
+        x_value = self.registers[V][x_num]
+        y_value = self.registers[V][y_num]
         if x_value != y_value:
-            self.set_pc_to_val(self.registers['pc'] + 2)
+            self.set_pc_to_val(self.registers[PC] + 2)
 
     def put_delay_to_vx(self):
         """
@@ -404,7 +404,7 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        self.registers['v'][x_num] = self.timers['delay']
+        self.registers[V][x_num] = self.timers[DELAY]
 
     def put_vx_to_delay(self):
         """
@@ -413,7 +413,7 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        self.timers['delay'] = self.registers['v'][x_num]
+        self.timers[DELAY] = self.registers[V][x_num]
 
     def put_vx_to_sound(self):
         """
@@ -422,7 +422,7 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        self.timers['sound'] = self.registers['v'][x_num]
+        self.timers[SOUND] = self.registers[V][x_num]
 
     def call_logical_operation(self):
         """
@@ -467,7 +467,7 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        self.registers['index'] = self.registers['v'][x_num] * 5
+        self.registers[INDEX] = self.registers[V][x_num] * 5
 
     def store_vx_in_bcd(self):
         """
@@ -480,8 +480,8 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        source = self.registers['v'][x_num]
-        idx = self.registers['index']
+        source = self.registers[V][x_num]
+        idx = self.registers[INDEX]
         self.memory[idx] = source // 100
         self.memory[idx + 1] = ((source // 10) % 10)
         self.memory[idx + 2] = ((source % 100) % 10)
@@ -507,8 +507,8 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        if self.keys[self.registers['v'][x_num]]:
-            self.set_pc_to_val(self.registers['pc'] + 2)
+        if self.keys[self.registers[V][x_num]]:
+            self.set_pc_to_val(self.registers[PC] + 2)
 
     def skip_if_key_not_pressed(self):
         """
@@ -518,8 +518,8 @@ class CHIP8:
         :return:
         """
         x_num, _ = self.get_x_and_y()
-        if not self.keys[self.registers['v'][x_num]]:
-            self.set_pc_to_val(self.registers['pc'] + 2)
+        if not self.keys[self.registers[V][x_num]]:
+            self.set_pc_to_val(self.registers[PC] + 2)
 
     def skip_if_key(self):
         """
@@ -543,10 +543,10 @@ class CHIP8:
         РС присвоить значение NNN
         :return:
         """
-        if self.registers["sp"] >= 16:
+        if self.registers[SP] >= 16:
             raise Exception("Stack Overflow!")
-        self.registers["sp"] += 1
-        self.stack[self.registers["sp"]] = self.registers["pc"]
+        self.registers[SP] += 1
+        self.stack[self.registers[SP]] = self.registers[PC]
         self.set_pc_to_val(self.opcode & 0x0FFF)
 
     def return_from_subroutine(self):
@@ -557,8 +557,8 @@ class CHIP8:
         затем вычитает 1 из stack pointer
         :return:
         """
-        self.set_pc_to_val(self.stack[self.registers["sp"]])
-        self.registers["sp"] -= 1
+        self.set_pc_to_val(self.stack[self.registers[SP]])
+        self.registers[SP] -= 1
 
     def draw_sprite(self):
         """
@@ -568,11 +568,11 @@ class CHIP8:
         координатами VX, VY
         :return:
         """
-        x_coord = self.registers['v'][(self.opcode & 0x0F00) >> 8]
-        y_coord = self.registers['v'][(self.opcode & 0x00F0) >> 4]
+        x_coord = self.registers[V][(self.opcode & 0x0F00) >> 8]
+        y_coord = self.registers[V][(self.opcode & 0x00F0) >> 4]
         n_bytes = self.opcode & 0x000F
 
-        self.registers['v'][15] = 0
+        self.registers[V][15] = 0
 
         self.draw(x_coord, y_coord, n_bytes)
 
@@ -586,7 +586,7 @@ class CHIP8:
         :param height:
         :return:
         """
-        I = self.registers['index']
+        I = self.registers[INDEX]
         for y_line in range(height):
             pixel_byte = self.memory[I + y_line]
             b = bin(pixel_byte)
@@ -599,7 +599,7 @@ class CHIP8:
                 prev_bit_at_idx = self.screen[x_coord][y_coord]
 
                 if bit_at_idx == prev_bit_at_idx == 1:
-                    self.registers['v'][15] = 1
+                    self.registers[V][15] = 1
 
                 self.screen[x_coord][y_coord] ^= bit_at_idx
 
@@ -621,7 +621,7 @@ class CHIP8:
         Загрузить в регистр index (I) значение NNN
         :return:
         """
-        self.registers['index'] = self.opcode & 0x0FFF
+        self.registers[INDEX] = self.opcode & 0x0FFF
 
     def put_value_to_vx(self):
         """
@@ -630,7 +630,7 @@ class CHIP8:
         :return:
         """
         idx = (self.opcode & 0x0F00) >> 8
-        self.registers['v'][idx] = self.opcode & 0x00FF
+        self.registers[V][idx] = self.opcode & 0x00FF
 
     def emulate_cycle(self, opcode=None):
         """
@@ -644,14 +644,14 @@ class CHIP8:
         if self.is_paused:
             return
 
-        pc = self.registers['pc']
+        pc = self.registers[PC]
         if not opcode:
             self.opcode = (self.memory[pc] << 8) | self.memory[pc + 1]
         else:
             self.opcode = opcode
 
         operation = (self.opcode & 0xF000) >> 12
-        self.set_pc_to_val(self.registers['pc'] + 2)
+        self.set_pc_to_val(self.registers[PC] + 2)
         try:
             self.operation_table[operation]()
         except KeyError:
@@ -675,12 +675,12 @@ class CHIP8:
         return doc.replace(":return:", "").strip('\n')
 
     def decrement_sound_timer(self):
-        if self.timers['sound'] > 0:
-            self.timers['sound'] -= 1
+        if self.timers[SOUND] > 0:
+            self.timers[SOUND] -= 1
 
     def decrement_delay_timer(self):
-        if self.timers['delay'] > 0:
-            self.timers['delay'] -= 1
+        if self.timers[DELAY] > 0:
+            self.timers[DELAY] -= 1
 
     def load_rom(self, rom):
         """

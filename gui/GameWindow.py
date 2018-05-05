@@ -8,31 +8,8 @@ from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from PyQt5.QtWidgets import QMainWindow, QGridLayout
 
 from chip8 import CHIP8
+from config import PIXEL_SIZE_DEBUG, KEYBOARD, WIDTH, HEIGHT
 from gui.DebugWidget import DebugWidget
-
-PIXEL_HEIGHT = 15
-PIXEL_WIDTH = 15
-
-DEBUG_WINDOW_WIDTH = 400
-
-KEYBOARD = {
-    Qt.Key_1: 0x1,
-    Qt.Key_2: 0x2,
-    Qt.Key_3: 0x3,
-    Qt.Key_Q: 0x4,
-    Qt.Key_W: 0x5,
-    Qt.Key_E: 0x6,
-    Qt.Key_A: 0x7,
-    Qt.Key_S: 0x8,
-    Qt.Key_D: 0x9,
-    Qt.Key_X: 0x0,
-    Qt.Key_Z: 0xa,
-    Qt.Key_C: 0xb,
-    Qt.Key_4: 0xc,
-    Qt.Key_R: 0xd,
-    Qt.Key_F: 0xe,
-    Qt.Key_V: 0xf,
-}
 
 
 class GameWindow(QMainWindow):
@@ -47,13 +24,19 @@ class GameWindow(QMainWindow):
         self.setWindowTitle(title)
         self.game = CHIP8()
 
-        if not self.DEBUG:
-            global DEBUG_WINDOW_WIDTH, PIXEL_HEIGHT, PIXEL_WIDTH
+        if self.DEBUG:
+            global PIXEL_SIZE
+            PIXEL_SIZE = PIXEL_SIZE_DEBUG
+            print(PIXEL_SIZE_DEBUG)
+            print(PIXEL_SIZE)
+        else:
+            global DEBUG_WINDOW_WIDTH
             DEBUG_WINDOW_WIDTH = 0
-            PIXEL_HEIGHT = PIXEL_WIDTH = 10
 
-        self.setFixedSize(64 * PIXEL_WIDTH + DEBUG_WINDOW_WIDTH,
-                          32 * PIXEL_HEIGHT)
+        print(PIXEL_SIZE)
+        print(DEBUG_WINDOW_WIDTH)
+        self.setFixedSize(WIDTH * PIXEL_SIZE + DEBUG_WINDOW_WIDTH,
+                          HEIGHT * PIXEL_SIZE)
 
         url = QUrl.fromLocalFile(os.path.abspath("sound.wav"))
         content = QMediaContent(url)
@@ -147,15 +130,15 @@ class GameWindow(QMainWindow):
         qp.end()
 
     def draw(self, qp):
-        for y in range(32):
-            for x in range(64):
+        for y in range(HEIGHT):
+            for x in range(WIDTH):
                 color = Qt.black if not self.game.screen[x][y] else Qt.white
-                qp.fillRect(x * PIXEL_WIDTH, y * PIXEL_HEIGHT,
-                            PIXEL_WIDTH, PIXEL_HEIGHT, color)
+                qp.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE,
+                            PIXEL_SIZE, PIXEL_SIZE, color)
 
 
 class ScreenFillerWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setFixedSize(64 * PIXEL_WIDTH, 32 * PIXEL_HEIGHT)
+        self.setFixedSize(WIDTH * PIXEL_SIZE, HEIGHT * PIXEL_SIZE)
